@@ -11,8 +11,14 @@
  *   TL.Art.icon(name)                 canvas 16x16: lixi van chang ban menu check cross star heo muc_tieu loa loa_tat
  *   TL.Art.text(ctx, str, x, y, {size,color,align,outline,shadow}) -> width   x,y = top of line box; crisp (binarised), cached
  *   TL.Art.textWidth(str, size)       -> px
- *   TL.Art.panel(ctx, rect, {fill,border,shadow,radius})   rounded, flat offset shadow
+ *   TL.Art.measure(str, size)         -> {w, asc, desc, cap}  ink box from actualBoundingBox (asc incl. Vietnamese marks), cap = cap height
+ *   TL.Art.textC(ctx, str, x, cy, {size,color,align,outline,shadow}) -> width   cy = vertical centre of the text body (cap height), measured, not guessed
+ *   TL.Art.badge(ctx, str, cx, cy, {size,fill,ink,edge,radius,shadow,padX,padY,minW,minH,anchor:'center'|'bottom'}) -> {x,y,w,h}   rounded plate sized from the text
+ *   TL.Art.badgeSize(str, size, o) -> {w,h}
+ *   TL.Art.slot(ctx, rect, {radius})  recessed lacquer slot (flat, no dashes)
+ *   TL.Art.panel(ctx, rect, {fill,border,shadow,radius,shadowY,bw})   rounded, flat offset shadow
  *   TL.Art.button(ctx, rect, label, state)   state idle|hover|down|disabled
+ *   Text is drawn in device pixels: ctx rotation/scale are ignored apart from the uniform device scale, so never rotate or ctx.scale text; change `size` instead.
  *   TL.Art._grids / _chars            grid registry for tests/art.check.js (works in Node)
  */
 (function (TL) {
@@ -705,7 +711,7 @@
     const faces = [mk(FONT_B64.latin, FONT_RANGE.latin), mk(FONT_B64.vi, FONT_RANGE.vi)];
     return Promise.all(faces.map(function (f) { return f.load(); })).then(function () {
       faces.forEach(function (f) { document.fonts.add(f); });
-      fontReady = true; TC.clear(); WC.clear(); return true;
+      fontReady = true; TC.clear(); WC.clear(); MC.clear(); return true;
     }).catch(function () { return false; });
   }
 
@@ -724,6 +730,23 @@
       const c = scratchCtx(8, 8); c.font = size + 'px ' + FONT_STACK; w = c.measureText(str).width + 1; WC.set(k, w);
     }
     return w;
+  }
+  const MC = new Map();
+  function measure(str, size) {
+    str = String(str); const k = str + '|' + size; let m = MC.get(k);
+    if (!m) {
+      const c = scratchCtx(8, 8); c.font = size + 'px ' + FONT_STACK; c.textBaseline = 'alphabetic';
+      const t = c.measureText(str), h = c.measureText('H');
+      const ok = isFinite(t.actualBoundingBoxAscent) && t.actualBoundingBoxAscent > 0;
+      m = { w: t.width + 1, asc: ok ? t.actualBoundingBoxAscent : size * 0.75, desc: ok ? Math.max(0, t.actualBoundingBoxDescent) : 0, cap: isFinite(h.actualBoundingBoxAscent) && h.actualBoundingBoxAscent > 0 ? h.actualBoundingBoxAscent : size * 0.7 };
+      MC.set(k, m);
+    }
+    return m;
+  }
+  // baseline offset from the vertical centre: the cap-height body sits on the centre, marks above and tails below may overhang a little
+  function baseOff(m, size) {
+    const a = Math.min(m.asc, m.cap + 0.18 * size), d = Math.min(m.desc, 0.2 * size);
+    return (a - d) / 2;
   }
   const rgbCache = {};
   function toRGB(css) {
@@ -787,6 +810,35 @@
     return w;
   }
 
+  function textC(ctx, str, x, cy, o) {
+    o = o || {}; str = String(str);
+    const size = o.size || 16, m = measure(str, size);
+    return text(ctx, str, x, cy + baseOff(m, size) - size * 0.95, o);
+  }
+  function badgeSize(str, size, o) {
+    o = o || {}; const m = measure(str, size);
+    const padX = o.padX != null ? o.padX : Math.round(size * 0.55), padY = o.padY != null ? o.padY : Math.round(size * 0.26);
+    return { w: Math.max(o.minW || 0, Math.ceil(m.w + 2 * padX)), h: Math.max(o.minH || 0, Math.ceil(Math.max(m.asc + m.desc, m.cap) + 2 * padY + 2)), m: m };
+  }
+  function badge(ctx, str, cx, cy, o) {
+    o = o || {}; str = String(str);
+    const size = o.size || 14, bs = badgeSize(str, size, o);
+    const x = Math.round(cx - bs.w / 2), y = Math.round(o.anchor === 'bottom' ? cy - bs.h : cy - bs.h / 2);
+    const r = { x: x, y: y, w: bs.w, h: bs.h };
+    panel(ctx, r, { fill: o.fill || PALN.doSon, border: o.edge || false, shadow: o.shadow === undefined ? PALN.denSon : o.shadow, radius: o.radius != null ? o.radius : Math.max(3, Math.round(size * 0.35)), shadowY: o.shadowY != null ? o.shadowY : Math.max(2, Math.round(size * 0.14)), bw: o.bw });
+    textC(ctx, str, x + bs.w / 2, y + bs.h / 2, { size: size, color: o.ink || PALN.giayDo, align: 'center', outline: o.outline === undefined ? false : o.outline, shadow: o.textShadow === undefined ? false : o.textShadow });
+    return r;
+  }
+  function slot(ctx, rect, o) {
+    o = o || {};
+    dev(ctx, function (s, q) {
+      const x = q(rect.x), y = q(rect.y), w = q(rect.w), h = q(rect.h), r = q(o.radius === undefined ? 4 : o.radius), l = q(2);
+      ctx.fillStyle = PALN.nauCanhGian; roundRect(ctx, x, y, w, h, r);                   // lip catching light on the bottom/right
+      ctx.fillStyle = '#0B0807'; roundRect(ctx, x, y, w - l, h - l, r);                   // cavity
+      ctx.fillStyle = PALN.denSon; roundRect(ctx, x + l, y + l, w - 2 * l, h - 2 * l, Math.max(1, r - l)); // floor, leaving a dark top/left wall
+    });
+  }
+
   // device-pixel drawing so flat rects stay crisp at fractional dpr
   function dev(ctx, fn) {
     const t = ctx.getTransform(), s = Math.max(1, t.a);
@@ -806,7 +858,7 @@
     o = o || {};
     const fill = o.fill || PALN.nauCanhGian, border = o.border === undefined ? PALN.vangKim : o.border, shadow = o.shadow === undefined ? PALN.denSon : o.shadow;
     dev(ctx, function (s, q) {
-      const x = q(rect.x), y = q(rect.y), w = q(rect.w), h = q(rect.h), r = q(o.radius === undefined ? 5 : o.radius), bw = border ? q(2) : 0, so = q(4);
+      const x = q(rect.x), y = q(rect.y), w = q(rect.w), h = q(rect.h), r = q(o.radius === undefined ? 5 : o.radius), bw = border ? q(o.bw || 2) : 0, so = q(o.shadowY != null ? o.shadowY : 4);
       if (shadow) { ctx.fillStyle = shadow; roundRect(ctx, x, y + so, w, h, r); }
       if (border) { ctx.fillStyle = border; roundRect(ctx, x, y, w, h, r); }
       ctx.fillStyle = fill; roundRect(ctx, x + bw, y + bw, w - 2 * bw, h - 2 * bw, Math.max(1, r - bw));
@@ -826,8 +878,11 @@
     });
     const size = Math.max(10, Math.min(Math.round(faceH * 0.55), 28));
     let sz = size; while (sz > 9 && textWidth(label, sz) > rect.w - 14) sz--;
-    ctx.save(); if (state === 'disabled') ctx.globalAlpha = 0.5;
-    text(ctx, label, rect.x + rect.w / 2, rect.y + dy + (faceH - sz * 1.15) / 2, { size: sz, align: 'center', color: state === 'hover' ? PALN.denSon : PALN.giayDo, outline: state === 'hover' ? PALN.doSon : PALN.denSon, shadow: false });
+    if (state === 'disabled') {            // debossed: a pale hairline inside the face keeps the shape readable on the dark table
+      dev(ctx, function (s, q) { const x = q(rect.x) + q(4), y = q(rect.y + dy) + q(4), w = q(rect.w) - q(8), h = q(faceH) - q(8); ctx.globalAlpha = 0.22; ctx.fillStyle = PALN.giayDo; ctx.fillRect(x, y, w, q(1)); ctx.fillRect(x, y + h - q(1), w, q(1)); ctx.fillRect(x, y, q(1), h); ctx.fillRect(x + w - q(1), y, q(1), h); });
+    }
+    ctx.save(); if (state === 'disabled') ctx.globalAlpha = 0.78;
+    if (label) textC(ctx, label, rect.x + rect.w / 2, rect.y + dy + faceH / 2, { size: sz, align: 'center', color: state === 'hover' ? PALN.denSon : PALN.giayDo, outline: state === 'hover' ? PALN.doSon : PALN.denSon, shadow: false });
     ctx.restore();
   }
 
@@ -849,6 +904,6 @@
     sao: function (id) { return memo('s' + id, function () { return buildSao(id); }); },
     portrait: function (id) { return memo('p' + id, function () { return buildPortrait(id); }); },
     icon: function (name) { return memo('i' + name, function () { return buildIcon(name); }); },
-    text: text, textWidth: textWidth, panel: panel, button: button,
+    text: text, textC: textC, measure: measure, badge: badge, badgeSize: badgeSize, slot: slot, textWidth: textWidth, panel: panel, button: button,
   };
 })(globalThis.TL = globalThis.TL || {});

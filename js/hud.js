@@ -1,16 +1,17 @@
 /* js/hud.js  (owner HUD) layout, drawing and hit-testing of the table chrome. Needs config, data, art (fx/sprite/audio optional, ?hud demo only).
  * API  TL.HUD   (all units CSS px; Rect = {x,y,w,h})
  *   layout(w, h, safe?) -> rects   safe = {t,r,b,l} insets. rects = {mode:'landscape'|'portrait', panel (landscape) | topBar (portrait),
- *        qnRow, qnSlot[5] (3:4, art 48x64), oppSeat, oppHand, deck, table, tablePlay (free area for played cards), pot, comboBox, diemBox, theBox,
- *        hand, btn{danh,bo,goiy,xep,menu}, cardH (hand card height), tableCardH, oppCardH, qnH}
+ *        qnRow, qnSlot[5] (3:4, art 48x64), oppSeat, oppPlate, oppHand, deck, deckCol, table, tablePlay (free area for played cards), pot, ribbon, comboBox, diemBox, theBox, dbBox (Điểm bàn box / top bar),
+ *        info{head,score,stats,...} (landscape), hand, btn{danh,bo,goiy,xep,menu}, cardH (hand card height), tableCardH, oppCardH, qnH}
  *   scaleFor(cssH, dpr) -> int     largest integer art scale whose 64-px card fits cssH; Game.scale = scaleFor(rects.cardH, dpr)
- *   draw(ctx, vm, rects)           chrome + faint sprite-slot outlines. Call BEFORE sprites (nothing opaque lies on a sprite area)
- *   drawOver(ctx, vm, rects)       small labels on top of sprites (Quy nhan names, Heo dat counter, card counts). Call AFTER sprites
+ *   draw(ctx, vm, rects)           chrome + recessed sprite slots. Call BEFORE sprites (nothing opaque lies on a sprite area)
+ *   drawOver(ctx, vm, rects)       small labels on top of sprites (Quy nhan names, Heo dat counter). Call AFTER sprites
  *   hit(rects, x, y, all?) -> 'danh'|'bo'|'goiy'|'xep'|'menu'|null   disabled buttons are ignored unless all is true (uses the states of the last draw)
  *   isEnabled(rects, id) -> bool
  *   demoScreen() -> Screen         the ?hud screen: fake mid-game vm, real card textures placed with Sprite.fan, clickable cards and buttons
- * vm extras read when present: hoverBtn, downBtn (button id -> hover/pressed look), house.short, deckLeft.
- * Fonts: all text goes through TL.Art.text; Quy nhan name bars are labelled in drawOver only when the name fits at 9 px or more.
+ * vm extras read when present: hoverBtn, downBtn (button id -> hover/pressed look), house.short, deckLeft, live (false = before the deal: no turn ribbon, no card count),
+ *   vanNo (current ván, 1-based; shown "Ván n/max"), j{diem,the,pot,diemBan} (FX.juice holders: the number swells), hl (tutorial spotlight, read by the tutorial only).
+ * Text: every string goes through TL.Art.textC / TL.Art.badge (measured, centred from the ink box); Quy nhan name bars are labelled in drawOver only when the name fits at 9 px or more.
  */
 (function (TL) {
   'use strict';
@@ -18,7 +19,7 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const R = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
   const BTN_IDS = ['danh', 'bo', 'goiy', 'xep', 'menu'];
-  const CAP = 14; // caption line under Quy nhan slots
+  const CAP = 22; // caption band under the Quy nhan slots
   let UI = 1;      // text scale of the current draw pass (rects.ui, or the info-panel unit)
 
   function scaleFor(cssH, dpr) { return Math.max(1, Math.floor((cssH * (dpr || 1)) / 64 + 1e-6)); }
@@ -39,6 +40,41 @@
     return { slots: slots, row: R(x, y, 5 * slotW + 4 * g, slotH + CAP), slotW: slotW };
   }
 
+  // the stage: pot plate centred under a popup lane, turn ribbon in the corner, played cards centred and large.
+  // On a short table (phones) the pot moves to the left edge and the cards take the full height.
+  function stage(table, mode, cardH) {
+    const compact = table.h < 210, rh = Math.round(clamp(table.h * (compact ? 0.15 : 0.1), 20, 34));
+    let pot, ribbon, tablePlay;
+    if (compact) {
+      const potW = Math.round(clamp(table.w * 0.2, 84, 160)), potH = Math.round(clamp(table.h * 0.4, 38, 64)), lane = Math.round(clamp(table.h * 0.18, 18, 28));
+      pot = R(table.x + 10, table.y + lane + Math.round((table.h - lane - 10 - potH) / 2), potW, potH);
+      ribbon = R(table.x + table.w - 10 - 10, table.y + 8, 10, rh);
+      const x0 = pot.x + pot.w + 10, y0 = table.y + 8 + rh + 14;
+      tablePlay = R(x0, y0, table.x + table.w - 10 - x0, table.y + table.h - 8 - y0);
+    } else {
+      const lane = Math.round(clamp(table.h * 0.1, 26, 44));
+      const potW = Math.round(clamp(table.w * (mode === 'portrait' ? 0.34 : 0.2), 100, 250)), potH = Math.round(clamp(table.h * 0.2, 46, 84));
+      pot = R(table.x + (table.w - potW) / 2, table.y + lane, potW, potH);
+      ribbon = R(table.x + 10, table.y + 8, 10, rh);
+      const pl = Math.round(clamp(table.h * 0.07, 20, 34));   // popup lane above the played cards
+      tablePlay = R(table.x + 10, pot.y + pot.h + 8 + pl, table.w - 20, table.y + table.h - 10 - (pot.y + pot.h + 8 + pl));
+    }
+    const tableCardH = Math.floor(Math.min(cardH * (mode === 'portrait' ? 0.95 : 1.12), tablePlay.h * 0.94));
+    return { pot: pot, ribbon: ribbon, tablePlay: tablePlay, tableCardH: tableCardH, compact: compact };
+  }
+
+  function oppGeometry(oppSeat, slotH, mode) {
+    const gapX = 6;
+    let plateW = Math.round(clamp(oppSeat.w * (mode === 'portrait' ? 0.5 : 0.5), 140, 340));
+    plateW = Math.max(120, Math.min(plateW, oppSeat.w - gapX - 130));
+    const plate = R(oppSeat.x, oppSeat.y, plateW, oppSeat.h - 4);
+    const fanW = oppSeat.w - plateW - gapX;
+    const oppCardH = Math.round(Math.max(40, Math.min(slotH * 0.8, 130, ((fanW * 0.94) / 5.5) / 0.75)));
+    const fanH = Math.round(oppCardH * 1.2) + 4;
+    const oppHand = R(oppSeat.x + plateW + gapX, oppSeat.y + Math.max(0, (oppSeat.h - 4 - fanH) / 2), fanW, fanH);
+    return { plate: plate, plateW: plateW, oppCardH: oppCardH, oppHand: oppHand };
+  }
+
   function layoutLandscape(w, h, X0, Y0, W, H, gap) {
     const L = CFG.LAYOUT;
     const pw = Math.round(clamp(w * L.panelFrac, 196, 460));
@@ -51,7 +87,7 @@
     let slotH = Math.min(Math.round(H * 0.2), Math.round(cardH * (cardH <= 120 ? 0.85 : 0.62)));
     slotH = Math.max(slotH, 44);
     const qg = Math.round(clamp(slotH * 0.07, 4, 10));
-    while (slotH > 40 && aW - (5 * Math.round(slotH * 0.75) + 4 * qg) - gap < 190) slotH -= 2;
+    while (slotH > 40 && aW - (5 * Math.round(slotH * 0.75) + 4 * qg) - gap < 300) slotH -= 2;
     const topH = slotH + CAP;
     const handHof = c => Math.round(c * 1.2) + 4;
     const tableMin = H * 0.3;
@@ -65,40 +101,39 @@
     const by2 = Y0 + H - r2, by1 = by2 - bg - r1;
     const qn = qnGeometry(ax, Y0, slotH, qg);
     const oppSeat = R(ax + qn.row.w + gap, Y0, aW - qn.row.w - gap, topH);
-    const plateW = Math.round(clamp(oppSeat.w * 0.52, 120, 260));
-    const oppCardH = Math.round(Math.min(slotH * 0.78, 120));
-    const oppHand = R(oppSeat.x + plateW + 6, oppSeat.y + 4, oppSeat.w - plateW - 6, Math.round(oppCardH * 1.2) + 4);
+    const og = oppGeometry(oppSeat, slotH, 'landscape');
+    // table (stage) with the draw pile in its own recessed column on the right, outside the table
     const tY = Y0 + topH + gap, tH = handY - gap - tY;
-    const table = R(ax, tY, aW, tH);
-    const potW = Math.round(clamp(aW * 0.2, 96, 210)), potH = Math.round(clamp(tH * 0.34, 44, 70));
-    const pot = R(table.x + 8, table.y + 8, potW, potH);
-    const deckH = Math.round(clamp(Math.min(tH * 0.5, cardH * 0.7), 44, 200)), deckW = Math.round(deckH * 0.75);
-    const deck = R(table.x + table.w - deckW - 10, table.y + table.h - deckH - 12, deckW, deckH);
-    const tpX = pot.x + pot.w + 10, tpR = deck.x - 10;
-    const tablePlay = R(tpX, table.y + 22, tpR - tpX, table.h - 30);
-    const tableCardH = Math.floor(Math.min(cardH * 0.92, tablePlay.h - 4));
-    // ---- left info panel rows
-    const ip = 8, inner = pw - 2 * ip;
-    const base = 46 + 62 + 70 + 34, menuH = 52, gaps = 4;
-    const u = clamp(Math.min((H - 2 * ip - menuH - gaps * 8) / base, inner / 168), 0.72, 2.4);
-    const rows = [46, 62, 70, 34].map(v => Math.round(v * u));
-    const used = rows.reduce((a, b) => a + b, 0) + menuH + 2 * ip;
-    const g2 = Math.max(6, Math.floor((H - used) / 4));
+    const deckH = Math.round(clamp(Math.min(tH * 0.46, cardH * 0.7), 44, 190)), deckW = Math.round(deckH * 0.75);
+    const colW = deckW + Math.round(clamp(deckW * 0.4, 14, 30));
+    const table = R(ax, tY, aW - colW - gap, tH);
+    const deckCol = R(table.x + table.w + gap, tY, colW, tH);
+    const deck = R(deckCol.x + (colW - deckW) / 2, deckCol.y + Math.round((tH - deckH) / 2) - 8, deckW, deckH);
+    const sg = stage(table, 'landscape', cardH);
+    // ---- left info panel: four blocks + menu, equally spaced
+    const ip = 8, inner = pw - 2 * ip, GAPMIN = 8;
+    const BASE = { head: 50, score: 66, combo: 104, stats: 34 }, baseSum = BASE.head + BASE.score + BASE.combo + BASE.stats;
+    const u = clamp(Math.min((H - 2 * ip - 64 - GAPMIN * 4) / baseSum, inner / 168), 0.72, 3);
+    const menuH = Math.round(clamp(40 * u, 46, 84));
+    const hh = { head: Math.round(BASE.head * u), score: Math.round(BASE.score * u), combo: Math.round(BASE.combo * u), stats: Math.round(BASE.stats * u) };
+    const free = H - 2 * ip - hh.head - hh.score - hh.combo - hh.stats - menuH;
+    const g2 = Math.max(GAPMIN, Math.floor(free / 4));
     let y = Y0 + ip;
-    const info = { u: u, inner: inner };
-    info.head = R(X0 + ip, y, inner, rows[0]); y += rows[0] + g2;
-    info.score = R(X0 + ip, y, inner, rows[1]); y += rows[1] + g2;
-    const comboBox = R(X0 + ip, y, inner, rows[2]); y += rows[2] + g2;
-    info.stats = R(X0 + ip, y, inner, rows[3]);
-    const nameH = Math.round(22 * u), bh = rows[2] - nameH - 2, bw = Math.floor((inner - Math.round(16 * u)) / 2);
-    const diemBox = R(comboBox.x, comboBox.y + nameH + 2, bw, bh);
-    const theBox = R(comboBox.x + inner - bw, comboBox.y + nameH + 2, bw, bh);
+    const info = { u: u, inner: inner, gap: g2 };
+    info.head = R(X0 + ip, y, inner, hh.head); y += hh.head + g2;
+    info.score = R(X0 + ip, y, inner, hh.score); y += hh.score + g2;
+    const comboBox = R(X0 + ip, y, inner, hh.combo); y += hh.combo + g2;
+    info.stats = R(X0 + ip, y, inner, hh.stats);
+    info.nameH = Math.round(22 * u); info.lane = Math.round(12 * u);
+    info.dbBox = R(info.score.x, info.score.y + Math.round(18 * u) + Math.round(4 * u), info.score.w, Math.round(34 * u));
+    const bh = hh.combo - info.nameH - info.lane, bw = Math.floor((inner - Math.round(16 * u)) / 2), by = comboBox.y + info.nameH + info.lane;
+    const diemBox = R(comboBox.x, by, bw, bh), theBox = R(comboBox.x + inner - bw, by, bw, bh);
     const menu = R(X0 + ip, Y0 + H - ip - menuH + 4, inner, menuH);
     return {
-      mode: 'landscape', panel: panel, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppHand: oppHand, deck: deck, table: table, tablePlay: tablePlay, pot: pot,
-      comboBox: comboBox, diemBox: diemBox, theBox: theBox, hand: hand,
+      mode: 'landscape', panel: panel, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, deckCol: deckCol, table: table, tablePlay: sg.tablePlay,
+      pot: sg.pot, ribbon: sg.ribbon, comboBox: comboBox, diemBox: diemBox, theBox: theBox, dbBox: info.dbBox, hand: hand,
       btn: { danh: R(bx, by1, hw, r1), bo: R(bx + hw + bg, by1, btnW - hw - bg, r1), goiy: R(bx, by2, hw, r2), xep: R(bx + hw + bg, by2, btnW - hw - bg, r2), menu: menu },
-      cardH: cardH, tableCardH: tableCardH, oppCardH: oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), info: info, plateW: plateW, caption: CAP,
+      cardH: cardH, tableCardH: sg.tableCardH, compact: sg.compact, oppCardH: og.oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), info: info, plateW: og.plateW, caption: CAP,
     };
   }
 
@@ -130,29 +165,24 @@
     ['danh', 'bo', 'goiy', 'xep'].forEach((id, i) => { btn[id] = R(X0 + i * (bw + bg), by, i === 3 ? W - 3 * (bw + bg) : bw, btnH); });
     const mS = 48;
     btn.menu = R(topBar.x + topBar.w - mS - 6, topBar.y + Math.round((tb - mS) / 2), mS, mS);
-    const plateW = Math.round(clamp(W * 0.5, 150, 330));
-    const oppCardH = Math.round(Math.min(oppH * 0.78, 110));
-    const oppHand = R(oppSeat.x + plateW + 6, oppSeat.y + Math.round((oppH - Math.round(oppCardH * 1.2) - 4) / 2), W - plateW - 6, Math.round(oppCardH * 1.2) + 4);
-    const potW = Math.round(clamp(W * 0.3, 96, 200)), potH = Math.round(clamp(tableH * 0.3, 40, 62));
-    const pot = R(table.x + 8, table.y + 8, potW, potH);
-    const tablePlay = R(table.x + 8, pot.y + pot.h + 6, table.w - 16, table.h - potH - 22);
-    const tableCardH = Math.floor(Math.min(cardH * 0.92, tablePlay.h - 4));
+    const og = oppGeometry(oppSeat, oppH, 'portrait');
+    const sg = stage(table, 'portrait', cardH);
     // combo box internals: name block left, Diem x The right
     const boxH = comboH - 10, rightW = Math.round(W * 0.64), bw2 = Math.floor((rightW - 22) / 2);
     const diemBox = R(comboBox.x + comboBox.w - rightW - 6, comboBox.y + 5, bw2, boxH);
     const theBox = R(comboBox.x + comboBox.w - 6 - bw2, comboBox.y + 5, bw2, boxH);
     return {
-      mode: 'portrait', topBar: topBar, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppHand: oppHand, deck: deck, table: table, tablePlay: tablePlay, pot: pot,
-      comboBox: comboBox, diemBox: diemBox, theBox: theBox, hand: hand, btn: btn,
-      cardH: cardH, tableCardH: tableCardH, oppCardH: oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), plateW: plateW, caption: CAP,
+      mode: 'portrait', topBar: topBar, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, table: table, tablePlay: sg.tablePlay,
+      pot: sg.pot, ribbon: sg.ribbon, comboBox: comboBox, diemBox: diemBox, theBox: theBox, dbBox: topBar, hand: hand, btn: btn,
+      cardH: cardH, tableCardH: sg.tableCardH, compact: sg.compact, oppCardH: og.oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), plateW: og.plateW, caption: CAP,
     };
   }
 
   // ------------------------------------------------------------------ drawing helpers
   const A = () => TL.Art;
   const scaleOf = ctx => Math.max(1, ctx.getTransform().a);
-  const snap = (ctx, v) => { const s = scaleOf(ctx); return Math.round(v * s) / s; };
 
+  // text centred on (x, cy) vertically from its measured ink box; size is scaled by the pass unit UI unless raw
   function txt(ctx, str, x, cy, size, o) {
     o = o || {};
     const min = o.min || 10;
@@ -166,11 +196,17 @@
     }
     const op = { size: size, color: o.color || PAL.giayDo, align: o.align || 'left', outline: o.outline === undefined ? (size >= 15 ? PAL.denSon : false) : o.outline, shadow: o.shadow === undefined ? PAL.denSon : o.shadow };
     if (o.alpha != null) { ctx.save(); ctx.globalAlpha = o.alpha; }
-    const wd = A().text(ctx, str, x, cy - size * 0.56, op);
+    const wd = A().textC(ctx, str, x, cy, op);
     if (o.alpha != null) ctx.restore();
     return wd;
   }
   const TW = (str, size) => A().textWidth(str, Math.max(10, Math.round(size * UI)));
+  function chip(ctx, str, cx, cy, size, o) {   // small rounded label sized from its text
+    o = o || {};
+    const sz = Math.max(10, Math.round(size * (o.raw ? 1 : UI)));
+    if (o.left) cx += A().badgeSize(str, sz, { minW: o.minW }).w / 2;   // cx is the left edge
+    return A().badge(ctx, str, cx, cy, { size: sz, fill: o.fill || PAL.doSon, ink: o.ink || PAL.giayDo, edge: o.edge, shadow: o.shadow === undefined ? false : o.shadow, radius: o.radius, minW: o.minW, minH: o.minH });
+  }
   function wrap(str, size, maxW, maxLines) {
     const words = String(str).split(' '), lines = [''];
     words.forEach(wd => {
@@ -195,11 +231,6 @@
     const w0 = Math.round((x + w) * s) / s - x0, h0 = Math.round((y + h) * s) / s - y0;
     ctx.save(); if (alpha != null) ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.fillRect(x0, y0, w0, h0); ctx.restore();
   }
-  function dashed(ctx, r, color, alpha) {
-    const t = 2, d = 6;
-    for (let x = r.x; x < r.x + r.w; x += d * 2) { const l = Math.min(d, r.x + r.w - x); fillR(ctx, color, x, r.y, l, t, alpha); fillR(ctx, color, x, r.y + r.h - t, l, t, alpha); }
-    for (let y = r.y; y < r.y + r.h; y += d * 2) { const l = Math.min(d, r.y + r.h - y); fillR(ctx, color, r.x, y, t, l, alpha); fillR(ctx, color, r.x + r.w - t, y, t, l, alpha); }
-  }
   function inset(ctx, r, color, alpha, off) {
     off = off || 4;
     fillR(ctx, color, r.x + off, r.y + off, r.w - 2 * off, 1, alpha); fillR(ctx, color, r.x + off, r.y + r.h - off - 1, r.w - 2 * off, 1, alpha);
@@ -211,13 +242,15 @@
     if (o.line !== false) inset(ctx, r, PAL.vangKim, 0.35, o.off || 5);
   }
   function icon(ctx, name, x, y, size) { return blit(ctx, A().icon(name), x, y, size, size, 'left'); }
-  function scoreBox(ctx, r, label, value, fill, dim) {
+  const juiced = (vm, k) => (TL.FX && vm.j && vm.j[k] ? TL.FX.juiceOf(vm.j[k]).s : 1);
+  function scoreBox(ctx, r, label, value, fill, empty, js) {
     A().panel(ctx, r, { fill: fill, border: PAL.denSon, shadow: PAL.denSon, radius: 5 });
     fillR(ctx, PAL.giayDo, r.x + 5, r.y + 3, r.w - 10, 1, 0.3);
     const ls = clamp(r.h * 0.24, 10, 24);
     txt(ctx, label, r.x + r.w / 2, r.y + r.h * 0.26, ls, { align: 'center', alpha: 0.9, maxW: r.w - 8, raw: true });
     const vs = clamp(r.h * 0.46, 14, 64);
-    txt(ctx, TL.fmt(value), r.x + r.w / 2, r.y + r.h * 0.68, vs, { align: 'center', maxW: r.w - 10, min: 12, alpha: dim ? 0.7 : 1, raw: true });
+    if (empty) txt(ctx, '–', r.x + r.w / 2, r.y + r.h * 0.67, vs, { align: 'center', alpha: 0.4, shadow: false, outline: false, raw: true });
+    else txt(ctx, TL.fmt(value), r.x + r.w / 2, r.y + r.h * 0.67, vs * (js || 1), { align: 'center', maxW: r.w - 10, min: 12, raw: true });
   }
   function bar(ctx, r, frac) {
     fillR(ctx, PAL.denSon, r.x, r.y, r.w, r.h);
@@ -235,27 +268,29 @@
     const mine = vm.turn === 0 && !vm.busy;
     return { danh: mine && !!vm.canPlay, bo: mine && !!vm.canPass, goiy: mine, xep: !vm.busy, menu: true };
   }
+  const vanText = vm => TX.hud.van + ' ' + (vm.vanNo || 1) + '/' + vm.vanMax;
 
   // ------------------------------------------------------------------ draw
   function drawTable(ctx, vm, r) {
     A().panel(ctx, r.table, { fill: PAL.denSon, border: false, shadow: false, radius: 8 });
-    ctx.save(); ctx.globalAlpha = 0.0; ctx.restore();
     inset(ctx, r.table, PAL.vangKim, 0.18, 3);
-    dashed(ctx, r.tablePlay, PAL.giayDo, 0.14);
-    // pot
+    // pot plate, centred at the top of the stage; the lane above it is where its popups rise
     const p = r.pot;
     lacquer(ctx, p, PAL.nauCanhGian, { off: 4, radius: 5 });
-    txt(ctx, TX.hud.pot, p.x + p.w / 2, p.y + p.h * 0.28, clamp(p.h * 0.24, 10, 22), { align: 'center', alpha: 0.9, maxW: p.w - 10, raw: true });
-    txt(ctx, TL.fmt(vm.pot || 0), p.x + p.w / 2, p.y + p.h * 0.68, clamp(p.h * 0.42, 14, 48), { align: 'center', color: PAL.vangKim, maxW: p.w - 12, min: 12, raw: true });
-    // turn ribbon
-    const mine = vm.turn === 0, label = mine ? TX.hud.yourTurn : TX.hud.oppTurn;
-    const sz = clamp(r.table.h * 0.1, 11, 24), tw = Math.min(r.table.w * 0.5, A().textWidth(label, sz) + 22), th = Math.round(sz * 1.9);
-    const rx = r.mode === 'portrait' ? r.table.x + r.table.w - tw - 8 : r.table.x + (r.table.w - tw) / 2 + (r.pot.w + 18) / 2 * 0, ry = r.table.y + 6;
-    const tx = r.mode === 'portrait' ? rx : Math.max(r.pot.x + r.pot.w + 10, Math.min(rx, r.deck.x - tw - 10));
-    A().panel(ctx, R(tx, ry, tw, th), { fill: mine ? PAL.doSon : PAL.nauCanhGian, border: mine ? PAL.vangKim : PAL.denSon, shadow: false, radius: 4 });
-    txt(ctx, label, tx + tw / 2, ry + th / 2, sz, { align: 'center', color: mine ? PAL.vangKim : PAL.giayDo, maxW: tw - 10, raw: true });
-    // deck
+    txt(ctx, TX.hud.pot, p.x + p.w / 2, p.y + p.h * 0.27, clamp(p.h * 0.24, 10, 22), { align: 'center', alpha: 0.9, maxW: p.w - 10, raw: true });
+    txt(ctx, TL.fmt(vm.pot || 0), p.x + p.w / 2, p.y + p.h * 0.67, clamp(p.h * 0.42, 14, 48) * juiced(vm, 'pot'), { align: 'center', color: PAL.vangKim, maxW: p.w - 12, min: 12, raw: true });
+    // turn ribbon: only once the cards are dealt
+    if (vm.live) {
+      const mine = vm.turn === 0, label = mine ? TX.hud.yourTurn : TX.hud.oppTurn, sz = Math.round(clamp(r.table.h * 0.07, 11, 20));
+      const o = { size: sz, padX: Math.round(sz * 0.7), padY: Math.round(sz * 0.35) }, bs = A().badgeSize(label, sz, o);
+      const right = r.mode === 'portrait' || r.compact, room = right ? r.table.w - 20 : Math.max(60, r.pot.x - r.table.x - 24), w = Math.min(bs.w, room);
+      const x = right ? r.table.x + r.table.w - w - 10 : r.table.x + 10;
+      A().badge(ctx, label, x + w / 2, r.table.y + 8 + bs.h / 2, Object.assign(o, { minW: w, fill: mine ? PAL.doSon : PAL.nauCanhGian, ink: mine ? PAL.vangKim : PAL.giayDo, edge: mine ? PAL.vangKim : false, shadow: false, bw: 1 }));
+    }
+  }
+  function drawDeck(ctx, vm, r) {
     const d = r.deck;
+    if (r.deckCol) A().slot(ctx, r.deckCol, { radius: 6 });
     for (let i = 2; i >= 0; i--) {
       const cv = A().back(), s = scaleOf(ctx), k = scaleFor(d.h, s);
       const px = (cv.width * k) / s, pyh = (cv.height * k) / s;
@@ -263,104 +298,108 @@
       ctx.drawImage(cv, Math.round((d.x + (d.w - px) / 2 - i * 2) * s), Math.round((d.y + (d.h - pyh) - i * 2) * s), cv.width * k, cv.height * k);
       ctx.restore();
     }
-    const left = vm.deckLeft;
-    if (typeof left === 'number') {
-      const bw = Math.round(34 * UI), bh = Math.round(20 * UI), bx = d.x + d.w / 2 - bw / 2, by = d.y + d.h - bh / 2 - 6;
-      A().panel(ctx, R(bx, by, bw, bh), { fill: PAL.denSon, border: PAL.vangKim, shadow: false, radius: 4 });
-      txt(ctx, left, bx + bw / 2, by + bh / 2, 12, { align: 'center', color: PAL.vangKim });
+    if (typeof vm.deckLeft === 'number') {
+      const sz = Math.round(clamp(d.h * 0.13, 11, 20));
+      chip(ctx, vm.deckLeft, d.x + d.w / 2, d.y + d.h + Math.round(sz * 1.1), sz, { raw: true, fill: PAL.denSon, ink: PAL.vangKim, edge: PAL.vangKim, minW: Math.round(sz * 2.6) });
     }
   }
 
   function drawQnSlots(ctx, vm, r) {
     r.qnSlot.forEach((s, i) => {
       const has = vm.qn && vm.qn[i];
-      A().panel(ctx, s, { fill: PAL.denSon, border: false, shadow: false, radius: 4 });
-      dashed(ctx, s, PAL.vangKim, has ? 0.25 : 0.4);
-      if (!has) txt(ctx, i + 1, s.x + s.w / 2, s.y + s.h / 2, clamp(s.h * 0.3, 12, 40), { align: 'center', alpha: 0.28, shadow: false, outline: false, raw: true });
+      A().slot(ctx, s, { radius: 4 });
+      if (!has) { // a tiny diamond, not a numeral: the slot is empty, not a button
+        const cx = s.x + s.w / 2, cy = s.y + s.h / 2, q = Math.max(2, Math.round(s.h * 0.035));
+        [[0, -2], [-1, -1], [0, -1], [1, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [0, 2]].forEach(o => fillR(ctx, PAL.vangKim, cx + o[0] * q - q / 2, cy + o[1] * q - q / 2, q, q, 0.2));
+      }
     });
     const n = (vm.qn || []).filter(Boolean).length, c = r.qnRow;
-    txt(ctx, TX.hud.qn + ' ' + n + '/' + r.qnSlot.length, c.x + c.w / 2, c.y + c.h - 5, 10, { align: 'center', alpha: 0.85, maxW: c.w, shadow: PAL.denSon });
+    txt(ctx, TX.hud.qn + ' ' + n + '/' + r.qnSlot.length, c.x + c.w / 2, c.y + c.h - CAP / 2 + 3, clamp(r.qnH * 0.11, 11, 17), { align: 'center', alpha: 0.9, maxW: c.w, shadow: PAL.denSon, raw: true, min: 11 });
   }
 
   function drawOppSeat(ctx, vm, r) {
-    const s = r.oppSeat, pl = R(s.x, s.y, r.plateW, s.h - 4);
+    const pl = r.oppPlate;
     lacquer(ctx, pl, PAL.nauCanhGian, { off: 4, radius: 5 });
-    const ps = Math.min(pl.h - 12, 96, Math.round(pl.w * 0.4)), pw = A().portrait(vm.oppId);
-    const pr = blit(ctx, pw, pl.x + 7, pl.y + 6, pl.h - 12, ps, 'left');
-    const tx = pl.x + 7 + pr.w + 8, tw = pl.x + pl.w - tx - 6;
-    const tall = pl.h >= 84, hs = clamp(pl.h * 0.19, 12, 30);
-    txt(ctx, vm.oppName || '', tx, pl.y + 10 + hs * 0.5, hs, { maxW: tw, color: PAL.vangKim, min: 11, raw: true });
-    let ly = pl.y + 10 + hs + 4 + (vm.house ? Math.round(16 * UI) / 2 : 6);
-    const small = clamp(pl.h * 0.14, 10, 22);
+    const pad = Math.round(clamp(pl.h * 0.07, 5, 12));
+    const ps = Math.min(pl.h - 2 * pad, Math.round(pl.w * 0.44)), pw = A().portrait(vm.oppId);
+    const pr = blit(ctx, pw, pl.x + pad, pl.y + pad, pl.h - 2 * pad, ps, 'left');
+    const tx = pl.x + pad + pr.w + pad + 2, tw = pl.x + pl.w - pad - tx;
+    const hs = Math.round(clamp(pl.h * 0.22, 13, 34)), cs = Math.round(clamp(pl.h * 0.14, 11, 22));
+    // the text column: name / luật nhà chip + rule / card count, spaced evenly and centred in the plate
+    const nameH = Math.round(hs * 1.15), chipH = A().badgeSize('Lj', cs, {}).h;
+    const room = pl.h - 2 * pad, ruleH = Math.round(cs * 1.2);
+    const showRule = !!vm.house && nameH + 2 * chipH + ruleH + 3 * 3 <= room;   // a short plate keeps the chip and drops the rule line
+    const rows = [{ h: nameH }];
+    if (vm.house) rows.push({ h: chipH }); if (showRule) rows.push({ h: ruleH });
+    rows.push({ h: chipH });
+    const used = rows.reduce((a, b) => a + b.h, 0);
+    const gap = Math.max(2, Math.min(Math.round(pl.h * 0.09), Math.floor((room - used) / Math.max(1, rows.length - 1))));
+    let y = pl.y + pad + Math.max(0, (room - used - gap * (rows.length - 1)) / 2);
+    const mid = h => y + h / 2;
+    txt(ctx, vm.oppName || '', tx, mid(nameH), hs, { maxW: tw, color: PAL.vangKim, min: 11, raw: true }); y += nameH + gap;
     if (vm.house) {
-      const tag = TX.hud.house;
-      const tgw = Math.min(tw, TW(tag, 10) + 10), th2 = Math.round(16 * UI);
-      A().panel(ctx, R(tx, ly - th2 / 2, tgw, th2), { fill: PAL.doSon, border: false, shadow: false, radius: 3 });
-      txt(ctx, tag, tx + tgw / 2, ly, 10, { align: 'center', maxW: tgw - 4, shadow: false });
-      ly += th2 + 2;
-      const rule = vm.house.short || vm.house.name;
-      if (tall && vm.house.quote && pl.h >= 110) {
-        wrap(vm.house.quote, 10, tw, 2).forEach((ln, i) => txt(ctx, ln, tx, ly + i * 12 * UI, 10, { maxW: tw, alpha: 0.9 }));
-        ly += 24 * UI;
-      } else if (tall) { txt(ctx, rule, tx, ly, small, { maxW: tw, alpha: 0.95, raw: true }); ly += 15 * UI; }
+      chip(ctx, TX.hud.house, tx, mid(chipH), cs, { raw: true, left: true, fill: PAL.doSon, ink: PAL.giayDo });
+      y += chipH + gap;
+      if (showRule) { txt(ctx, vm.house.short || vm.house.name, tx, mid(ruleH), cs, { maxW: tw, alpha: 0.95, shadow: false, raw: true }); y += ruleH + gap; }
     }
-    return;
+    if (vm.oppCount > 0) {
+      const parts = [TX.hud.oppCards.replace('%d', vm.oppCount)];
+      if (vm.oppHeo != null) parts.push(TX.hud.oppHeo.replace('%d', vm.oppHeo));
+      let lab = parts.join(' · '), size = cs;
+      while (size > 10 && A().textWidth(lab, size) + size * 1.1 > tw) size--;
+      const bs = A().badgeSize(lab, size, {});
+      A().badge(ctx, lab, tx + Math.min(bs.w, tw) / 2, mid(chipH), { size: size, fill: PAL.denSon, ink: PAL.giayDo, edge: PAL.vangKim, shadow: false, bw: 1, minW: Math.min(bs.w, tw) });
+    }
   }
 
   function drawInfoLandscape(ctx, vm, r) {
     const p = r.panel, I = r.info, u = I.u; UI = u;
     lacquer(ctx, p, PAL.nauCanhGian, { off: 4, radius: 6 });
-    // head
-    const hd = I.head, nm = vm.ban && vm.ban.name || '';
-    txt(ctx, nm, hd.x + 2, hd.y + 13 * u, 16, { color: PAL.vangKim, maxW: hd.w - 4 });
-    const kind = TX.kind[vm.ban && vm.ban.kind] || '', ks = 10, kw = TW(kind, ks) + 12;
-    A().panel(ctx, R(hd.x + 2, hd.y + 27 * u, kw, 18 * u), { fill: PAL.doSon, border: false, shadow: false, radius: 3 });
-    txt(ctx, kind, hd.x + 2 + kw / 2, hd.y + 36 * u, ks, { align: 'center', color: PAL.vangKim, shadow: false });
-    const sub = (vm.chang && vm.chang.name || '') + ' · ' + TX.hud.ban + ' ' + ((vm.ban && vm.ban.idx || 0) + 1) + '/3';
-    txt(ctx, sub, hd.x + 2 + kw + 8, hd.y + 36 * u, 11, { maxW: hd.w - kw - 14, alpha: 0.9 });
-    // score block
-    const sc = I.score, ic = Math.round(16 * u);
-    icon(ctx, 'muc_tieu', sc.x + 1, sc.y, ic);
-    txt(ctx, TX.hud.target, sc.x + ic + 6, sc.y + ic / 2, 11, { alpha: 0.9, maxW: sc.w * 0.5 });
-    txt(ctx, TL.fmt(vm.target || 0), sc.x + sc.w - 2, sc.y + ic / 2, 15, { align: 'right', color: PAL.vangKim, maxW: sc.w * 0.42 });
-    const bx = R(sc.x, sc.y + ic + 4 * u, sc.w, Math.round(34 * u));
+    // block 1: bàn info (chặng, kind chip + bàn n/3)
+    const hd = I.head, row1 = hd.y + hd.h * 0.27, row2 = hd.y + hd.h * 0.74;
+    txt(ctx, vm.chang && vm.chang.name || '', hd.x + 2, row1, 17, { color: PAL.vangKim, maxW: hd.w - 4 });
+    const kind = TX.kind[vm.ban && vm.ban.kind] || '', ks = 11;
+    const kb = chip(ctx, kind, hd.x + 2, row2, ks, { fill: PAL.doSon, ink: PAL.vangKim, left: true });
+    txt(ctx, TX.hud.ban + ' ' + ((vm.ban && vm.ban.idx || 0) + 1) + '/3', kb.x + kb.w + 8, row2, 13, { maxW: hd.x + hd.w - kb.x - kb.w - 10, alpha: 0.95 });
+    // block 2: target, Điểm bàn, progress
+    const sc = I.score, ic = Math.round(16 * u), rowH = Math.round(18 * u);
+    icon(ctx, 'muc_tieu', sc.x + 1, sc.y + (rowH - ic) / 2, ic);
+    txt(ctx, TX.hud.target, sc.x + ic + 6, sc.y + rowH / 2, 12, { alpha: 0.9, maxW: sc.w * 0.5 });
+    txt(ctx, TL.fmt(vm.target || 0), sc.x + sc.w - 2, sc.y + rowH / 2, 15, { align: 'right', color: PAL.vangKim, maxW: sc.w * 0.42 });
+    const bx = I.dbBox;
     A().panel(ctx, bx, { fill: PAL.denSon, border: PAL.vangKim, shadow: false, radius: 4 });
-    txt(ctx, TX.hud.diemBan, bx.x + 8, bx.y + bx.h / 2, 10, { alpha: 0.9, maxW: bx.w * 0.4 });
-    txt(ctx, TL.fmt(vm.diemBan || 0), bx.x + bx.w - 8, bx.y + bx.h / 2, 20, { align: 'right', maxW: bx.w * 0.58, min: 12 });
-    bar(ctx, R(sc.x, bx.y + bx.h + 4 * u, sc.w, Math.max(5, Math.round(6 * u))), (vm.diemBan || 0) / Math.max(1, vm.target || 1));
-    drawCombo(ctx, vm, r, 22 * u);
-    // stats row
+    txt(ctx, TX.hud.diemBan, bx.x + 8, bx.y + bx.h / 2, 12, { alpha: 0.9, maxW: bx.w * 0.4 });
+    txt(ctx, TL.fmt(vm.diemBan || 0), bx.x + bx.w - 8, bx.y + bx.h / 2, 20 * juiced(vm, 'diemBan'), { align: 'right', maxW: bx.w * 0.58, min: 12 });
+    bar(ctx, R(sc.x, bx.y + bx.h + 5 * u, sc.w, Math.max(5, Math.round(6 * u))), (vm.diemBan || 0) / Math.max(1, vm.target || 1));
+    // block 3: combo name + level, Điểm × Thế
+    drawCombo(ctx, vm, r, I.nameH);
+    // block 4: ván + lì xì
     const st = I.stats, half = Math.floor((st.w - 6) / 2);
     const boxes = [
-      { ic: 'van', t: TX.hud.van + ' ' + vm.vanLeft + '/' + vm.vanMax, r: R(st.x, st.y, half, st.h) },
+      { ic: 'van', t: vanText(vm), r: R(st.x, st.y, half, st.h) },
       { ic: 'lixi', t: TL.fmt(vm.lixi || 0), r: R(st.x + st.w - half, st.y, half, st.h), gold: true },
     ];
     boxes.forEach(b => {
       A().panel(ctx, b.r, { fill: PAL.denSon, border: PAL.vangKim, shadow: false, radius: 4 });
       const s2 = Math.min(Math.round(20 * u), b.r.h - 8), iy = b.r.y + (b.r.h - s2) / 2;
       icon(ctx, b.ic, b.r.x + 6, iy, s2);
-      txt(ctx, b.t, b.r.x + 6 + s2 + 6, b.r.y + b.r.h / 2, 12, { maxW: b.r.w - s2 - 18, color: b.gold ? PAL.vangKim : PAL.giayDo, min: 11 });
+      txt(ctx, b.t, b.r.x + 6 + s2 + 6, b.r.y + b.r.h / 2, 13, { maxW: b.r.w - s2 - 18, color: b.gold ? PAL.vangKim : PAL.giayDo, min: 11 });
     });
   }
 
   function drawCombo(ctx, vm, r, nameH) {
-    const cb = r.comboBox, land = r.mode === 'landscape';
-    let ml = null;
+    const cb = r.comboBox, land = r.mode === 'landscape', empty = !vm.combo;
+    const jd = juiced(vm, 'diem'), jt = juiced(vm, 'the');
     if (land) {
       const ny = cb.y + nameH / 2;
       if (vm.msg) {
         A().panel(ctx, R(cb.x, cb.y, cb.w, nameH), { fill: PAL.doSon, border: false, shadow: false, radius: 3 });
         txt(ctx, vm.msg, cb.x + 6, ny, 11, { maxW: cb.w - 12, color: PAL.giayDo, shadow: false });
       } else if (vm.combo) {
-        const lv = TX.hud.level.replace('%d', vm.combo.level);
-        const wl = TW(lv, 11) + 4;
+        const lv = TX.hud.level.replace('%d', vm.combo.level), wl = TW(lv, 11) + 4;
         txt(ctx, vm.combo.name, cb.x + 2, ny, 15, { color: PAL.vangKim, maxW: cb.w - wl - 6 });
         txt(ctx, lv, cb.x + cb.w - 2, ny, 11, { align: 'right', alpha: 0.9 });
-      } else txt(ctx, TX.msg.pickCards, cb.x + 2, ny, 12, { alpha: 0.7, maxW: cb.w });
-      const x = (r.diemBox.x + r.diemBox.w + r.theBox.x) / 2;
-      scoreBox(ctx, r.diemBox, TX.hud.diem, vm.diem || 0, PAL.menLam, !vm.combo);
-      scoreBox(ctx, r.theBox, TX.hud.the, vm.the || 0, PAL.doSon, !vm.combo);
-      txt(ctx, '×', x, r.diemBox.y + r.diemBox.h / 2, 18, { align: 'center', color: PAL.vangKim, min: 14 });
+      } else txt(ctx, TX.msg.pickCards, cb.x + 2, ny, 12, { alpha: 0.6, maxW: cb.w });
     } else {
       lacquer(ctx, cb, PAL.nauCanhGian, { off: 3, radius: 5 });
       const lx = cb.x + 10, lw = r.diemBox.x - lx - 8, cy = cb.y + cb.h / 2;
@@ -369,11 +408,11 @@
       } else if (vm.combo) {
         txt(ctx, vm.combo.name, lx, cy - 8 * UI, 15, { color: PAL.vangKim, maxW: lw });
         txt(ctx, TX.hud.level.replace('%d', vm.combo.level), lx, cy + 11 * UI, 11, { alpha: 0.9, maxW: lw });
-      } else txt(ctx, TX.msg.pickCards, lx, cy, 12, { alpha: 0.7, maxW: lw });
-      scoreBox(ctx, r.diemBox, TX.hud.diem, vm.diem || 0, PAL.menLam, !vm.combo);
-      scoreBox(ctx, r.theBox, TX.hud.the, vm.the || 0, PAL.doSon, !vm.combo);
-      txt(ctx, '×', (r.diemBox.x + r.diemBox.w + r.theBox.x) / 2, r.diemBox.y + r.diemBox.h / 2, 16, { align: 'center', color: PAL.vangKim, min: 14 });
+      } else txt(ctx, TX.msg.pickCards, lx, cy, 12, { alpha: 0.6, maxW: lw });
     }
+    scoreBox(ctx, r.diemBox, TX.hud.diem, vm.diem || 0, PAL.menLam, empty, jd);
+    scoreBox(ctx, r.theBox, TX.hud.the, vm.the || 0, PAL.doSon, empty, jt);
+    txt(ctx, '×', (r.diemBox.x + r.diemBox.w + r.theBox.x) / 2, r.diemBox.y + r.diemBox.h / 2, land ? 18 : 16, { align: 'center', color: PAL.vangKim, min: 14, alpha: empty ? 0.45 : 1 });
   }
 
   function drawTopBar(ctx, vm, r) {
@@ -381,18 +420,18 @@
     lacquer(ctx, t, PAL.nauCanhGian, { off: 3, radius: 6 });
     const lx = t.x + 10, rx = m.x - 8, w = rx - lx, kind = TX.kind[vm.ban && vm.ban.kind] || '';
     const r1 = t.y + t.h * 0.3, r2 = t.y + t.h * 0.7;
-    // row 1: kind plaque, name | row-1 right: van + lixi
-    const ks = 10, kw = TW(kind, ks) + 10, rh = Math.round(18 * UI);
-    A().panel(ctx, R(lx, r1 - rh / 2, kw, rh), { fill: PAL.doSon, border: false, shadow: false, radius: 3 });
-    txt(ctx, kind, lx + kw / 2, r1, ks, { align: 'center', color: PAL.vangKim, shadow: false });
-    const stat = [{ ic: 'lixi', t: TL.fmt(vm.lixi || 0), c: PAL.vangKim }, { ic: 'van', t: vm.vanLeft + '/' + vm.vanMax, c: PAL.giayDo }];
+    // row 1: kind chip, chặng · bàn | right: lì xì + ván
+    const ks = 11;
+    const kb = A().badgeSize(kind, Math.round(ks * UI), {});
+    chip(ctx, kind, lx + kb.w / 2, r1, ks, { fill: PAL.doSon, ink: PAL.vangKim });
+    const stat = [{ ic: 'lixi', t: TL.fmt(vm.lixi || 0), c: PAL.vangKim }, { ic: 'van', t: vanText(vm), c: PAL.giayDo }];
     let sx = rx;
     stat.forEach(sv => {
       const wt = TW(sv.t, 12), isz = Math.round(16 * UI); sx -= wt;
       txt(ctx, sv.t, sx, r1, 12, { color: sv.c, min: 11 }); sx -= isz + 2; icon(ctx, sv.ic, sx, r1 - isz / 2, isz); sx -= 10;
     });
-    const nx = lx + kw + 7, nw = sx - nx;
-    txt(ctx, (vm.ban && vm.ban.name || '') + ' · ' + (vm.chang && vm.chang.name || ''), nx, r1, 13, { color: PAL.vangKim, maxW: nw, min: 10 });
+    const nx = lx + kb.w + 8, nw = sx - nx;
+    txt(ctx, (vm.chang && vm.chang.name || '') + ' · ' + TX.hud.ban + ' ' + ((vm.ban && vm.ban.idx || 0) + 1) + '/3', nx, r1, 13, { color: PAL.vangKim, maxW: nw, min: 10 });
     // row 2: progress with numbers
     const bh = Math.round(t.h * 0.3), by = r2 - bh / 2 + 2, bw = w;
     fillR(ctx, PAL.denSon, lx, by, bw, bh);
@@ -400,7 +439,7 @@
     const fr = clamp((vm.diemBan || 0) / Math.max(1, vm.target || 1), 0, 1);
     if (fr > 0) fillR(ctx, fr >= 1 ? PAL.vangKim : PAL.laXanh, lx + 1, by + 1, Math.round((bw - 2) * fr), bh - 2);
     const label = TX.hud.diemBan + ' ' + TL.fmt(vm.diemBan || 0) + ' / ' + TL.fmt(vm.target || 0);
-    txt(ctx, label, lx + bw / 2, by + bh / 2 + 0.5, clamp(bh - 6, 10, 28), { align: 'center', maxW: bw - 8, min: 10, shadow: PAL.denSon, outline: PAL.denSon, raw: true });
+    txt(ctx, label, lx + bw / 2, by + bh / 2, clamp(bh - 6, 10, 28), { align: 'center', maxW: bw - 8, min: 10, shadow: PAL.denSon, outline: PAL.denSon, raw: true });
   }
 
   function drawButtons(ctx, vm, r) {
@@ -410,8 +449,8 @@
       st[id] = btnState(vm, id, en[id]);
       if (id === 'menu' && r.mode === 'portrait') {
         A().button(ctx, r.btn.menu, '', st[id]);
-        const m = r.btn.menu, ic = 16 * Math.max(1, Math.floor((m.h - 20) / 16));
-        blit(ctx, A().icon('menu'), m.x, m.y + (st[id] === 'down' ? 3 : 1) , m.h - 4, m.w, 'center');
+        const m = r.btn.menu;
+        blit(ctx, A().icon('menu'), m.x, m.y + (st[id] === 'down' ? 3 : 1), m.h - 4, m.w, 'center');
       } else A().button(ctx, r.btn[id], label, st[id]);
     });
     r._st = st;
@@ -421,10 +460,9 @@
     ctx.imageSmoothingEnabled = false;
     UI = r.ui;
     drawTable(ctx, vm, r);
+    drawDeck(ctx, vm, r);
     drawQnSlots(ctx, vm, r);
     drawOppSeat(ctx, vm, r);
-    dashed(ctx, r.oppHand, PAL.giayDo, 0.16);
-    dashed(ctx, r.hand, PAL.giayDo, 0.12);
     if (r.mode === 'landscape') drawInfoLandscape(ctx, vm, r); else { drawTopBar(ctx, vm, r); drawCombo(ctx, vm, r, 0); }
     UI = r.ui;
     drawButtons(ctx, vm, r);
@@ -442,18 +480,10 @@
         if (sz >= 9) txt(ctx, def.name, s.x + s.w / 2, by, sz, { align: 'center', min: 8, shadow: false, outline: false, color: PAL.giayDo, raw: true });
       }
       if (q.n > 0) {
-        const t = '+' + q.n, wd = TW(t, 11) + 8, bh = Math.round(17 * UI);
-        A().panel(ctx, R(s.x + s.w - wd + 3, s.y - 5, wd, bh), { fill: PAL.doSon, border: PAL.vangKim, shadow: false, radius: 4 });
-        txt(ctx, t, s.x + s.w - wd / 2 + 3, s.y - 5 + bh / 2, 11, { align: 'center', shadow: false });
+        const t = '+' + q.n, sz = Math.max(10, Math.round(11 * UI)), bs = A().badgeSize(t, sz, {});
+        A().badge(ctx, t, s.x + s.w - bs.w / 2 - 2, s.y + 3 + bs.h / 2, { size: sz, fill: PAL.doSon, ink: PAL.giayDo, edge: PAL.vangKim, shadow: false, bw: 1 });
       }
     });
-    // opponent card count / heo, under the fan
-    const o = r.oppHand, parts = [TX.hud.oppCards.replace('%d', vm.oppCount)];
-    if (vm.oppHeo != null) parts.push(TX.hud.oppHeo.replace('%d', vm.oppHeo));
-    const label = parts.join(' · '), sz = 11, wd = Math.min(o.w, TW(label, sz) + 14), bh = Math.round(18 * UI);
-    const ly = r.oppSeat.y + r.oppSeat.h - bh / 2 - 6;
-    A().panel(ctx, R(o.x + (o.w - wd) / 2, ly - bh / 2, wd, bh), { fill: PAL.denSon, border: PAL.vangKim, shadow: false, radius: 4 });
-    txt(ctx, label, o.x + o.w / 2, ly, sz, { align: 'center', maxW: wd - 8, shadow: false });
   }
 
   function hit(r, x, y, all) {
@@ -473,7 +503,7 @@
       combo: { name: DATA.COMBO_NAME.sanh, level: 2 }, diem: 118, the: 7, vanLeft: 2, vanMax: 3, lixi: 11, oppId: ban.id, oppName: ban.name,
       house: { name: hr.name, quote: hr.quote, short: hr.short }, oppCount: 6, oppHeo: 1, oppReveal: [], deckLeft: 32,
       qn: [{ id: 'chu_xe_om', n: 0 }, { id: 'heo_dat', n: 3 }, { id: 'ba_ban_xoi', n: 0 }, { id: 'dan_cho_lon', n: 0 }, null],
-      turn: 0, canPlay: true, canPass: true, busy: false, sortMode: 'rank', msg: null, flames: false,
+      turn: 0, canPlay: true, canPass: true, busy: false, sortMode: 'rank', msg: null, flames: false, live: true, vanNo: 2, j: {},
     };
   }
 

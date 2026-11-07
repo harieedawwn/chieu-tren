@@ -6,9 +6,10 @@
  *   FX.queue.busy() / FX.queue.clear()
  *   FX.after(delay, fn)       parallel one-shot timer (/speed)
  *   FX.tween(obj, props, dur, ease, {delay,onDone})  ease 'out'|'back'|'inout'|'spring'|'linear' -> {cancel()}; same keys steal
- *   FX.counter(obj, key, to, dur)   tween a number and juice on change; show TL.fmt(obj[key])
+ *   FX.counter(obj, key, to, dur)   tween a number and juice on change (obj.juiceTargets[key] = holder to juice instead of obj); show TL.fmt(obj[key])
  *   FX.juice(obj, a) / FX.juiceOf(obj) -> {s, r}   damped scale + rotation wobble (read it when drawing obj)
- *   FX.popup(text, x, y, kind 'diem'|'the'|'xthe'|'gold'|'bad')   FX.stamp(text, kind 'good'|'bad'|'gold', x?, y?)
+ *   FX.popup(text, x, y, kind 'diem'|'the'|'xthe'|'gold'|'bad', {center?})  small badge starting just above (x, y) = top edge of its source, drifts up
+ *   FX.stamp(text, kind 'good'|'bad'|'gold', x?, y?)  unrotated banner centred on (x, y), text shrunk/wrapped to fit
  *   FX.shake(px)   FX.confetti(x, y, n)   FX.flame(rect, on)
  *   FX.shakeFor(score) -> px   FX.stepGap(nSteps) -> s   FX.tickPitch(i) -> pitch multiplier
  *   FX.springStep(s{x,v}, target, dt, freq, zeta)   FX.ease{linear,out,back,inout,spring,outBack(t,s)}   (pure, used by sprite.js)
@@ -161,15 +162,17 @@
     const was = pm[key] != null ? pm[key] : obj[key];
     if (was === to) return null;
     pm[key] = to;
-    if (typeof obj.juice === 'function') obj.juice(1); else juice(obj, 1);
+    const jt = obj.juiceTargets && obj.juiceTargets[key];
+    if (jt) juice(jt, 1); else if (typeof obj.juice === 'function') obj.juice(1); else juice(obj, 1);
     return tween(obj, { [key]: to }, dur == null ? M.counter.dur : dur, 'out', { onDone: () => { if (pm[key] === to) delete pm[key]; } });
   }
 
   // ---------- text ----------
+  // One text path for the whole game: TL.Art measures and draws (same font, same metrics), y = vertical middle of the text body.
   function font(size) { return 'bold ' + Math.round(size) + 'px GameFont, "Be Vietnam Pro", "Segoe UI", Roboto, sans-serif'; }
   function text(ctx, str, x, y, o) {
     o = o || {};
-    if (TL.Art && typeof TL.Art.text === 'function') { TL.Art.text(ctx, str, x, y, o); return; }
+    if (TL.Art && typeof TL.Art.textC === 'function') { TL.Art.textC(ctx, str, x, y, o); return; }
     const size = o.size || 16, px = Math.max(1, Math.round(size / 12));
     ctx.save();
     ctx.font = font(size); ctx.textAlign = o.align || 'left'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
@@ -178,6 +181,7 @@
     ctx.fillStyle = o.color || PAL.giayDo; ctx.fillText(str, x, y);
     ctx.restore();
   }
+  const tw = (str, size) => (TL.Art ? TL.Art.textWidth(str, size) : str.length * size * 0.55);
   function artPx() {
     const g = TL.Game;
     return g && g.scale && g.dpr ? g.scale / g.dpr : FX.pixel || 3;
@@ -190,63 +194,92 @@
   }
 
   // ---------- popups ----------
+  // A popup is a small badge sized to its text. (x, y) = the top edge of the thing it explains; the badge starts just above that point,
+  // pops in, drifts up and fades, so it never sits on the label or art it belongs to. opts.center places the badge centre at (x, y) instead.
   let popups = [];
   const POP = {
     diem: { fill: PAL.menLam, ink: PAL.giayDo, size: 1 },
     the: { fill: PAL.doSon, ink: PAL.giayDo, size: 1 },
-    xthe: { fill: PAL.doSon, ink: PAL.vangKim, size: 1.3 },
-    gold: { fill: PAL.vangKim, ink: PAL.denSon, size: 1.15 },
+    xthe: { fill: PAL.doSon, ink: PAL.vangKim, size: 1.25 },
+    gold: { fill: PAL.vangKim, ink: PAL.denSon, size: 1.1 },
     bad: { fill: PAL.nauCanhGian, ink: PAL.giayDo, size: 1, edge: PAL.doSon },
   };
-  function popup(str, x, y, kind) { popups.push({ str: String(str), x: x, y: y, kind: POP[kind] ? kind : 'gold', age: 0 }); }
-  function plate(ctx, x, y, w, h, fill, edge, sh) {
-    x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x + sh, y + sh, w, h);
-    ctx.fillStyle = fill; ctx.fillRect(x, y, w, h);
-    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); }
+  function popup(str, x, y, kind, opts) {
+    const near = popups.filter((q) => q.age < 0.5 && Math.abs(q.x - x) < 44 && Math.abs(q.y - y) < 20).length;   // stack instead of overprinting
+    popups.push({ str: String(str), x: x, y: y - near * clamp(Math.round(viewH() * 0.04), 18, 40), kind: POP[kind] ? kind : 'gold', age: 0, o: opts || {} });
   }
+  const viewH = () => (FX.view ? FX.view.h : (TL.Game && TL.Game.h) || 600);
   function drawPopups(ctx) {
-    const P = M.popup;
+    if (!popups.length || !TL.Art) return;
+    const P = M.popup, v = viewOf(ctx), base = clamp(Math.round(v.h * 0.024), 13, 26);
     for (const p of popups) {
       const k = p.age / P.dur, d = POP[p.kind];
-      const size = Math.max(16, Math.round(9 * artPx())) * d.size * FX.textScale;
-      const sc = k < 0.25 ? outBack(k / 0.25, P.back) : 1;
+      const pop = k < 0.22 ? outBack(k / 0.22, P.back) : 1;
+      const size = Math.max(9, Math.round(base * d.size * FX.textScale * Math.round(pop * 12) / 12));   // quantised so the bitmap cache stays small
       const al = k < P.fadeAt ? 1 : Math.max(0, 1 - (k - P.fadeAt) / (1 - P.fadeAt));
-      const cy = p.y - P.rise * EASE.out(Math.min(1, k / 0.8));
-      ctx.font = font(size);
-      const w = ctx.measureText(p.str).width + size * 0.9, h = size * 1.4;
-      ctx.save();
-      ctx.globalAlpha = al; ctx.translate(Math.round(p.x), Math.round(cy)); ctx.scale(sc, sc);
-      plate(ctx, -w / 2, -h / 2, w, h, d.fill, d.edge, Math.max(2, Math.round(size / 7)));
-      text(ctx, p.str, 0, 0, { size: size, color: d.ink, align: 'center', outline: false, shadow: false });
+      const rise = P.rise * (v.h > 700 ? 0.75 : 0.55) * EASE.out(Math.min(1, k / 0.8));
+      const bs = TL.Art.badgeSize(p.str, size);
+      const cx = clamp(p.x, bs.w / 2 + 4, v.w - bs.w / 2 - 6);
+      let cy = (p.o.center ? p.y : p.y - bs.h / 2 + 1) - rise;
+      cy = Math.max(bs.h / 2 + 3, cy);
+      ctx.save(); ctx.globalAlpha = al;
+      TL.Art.badge(ctx, p.str, cx, cy, { size: size, fill: d.fill, ink: d.ink, edge: d.edge });
       ctx.restore();
     }
   }
 
   // ---------- stamps ----------
+  // A stamp is an unrotated banner: text measured with the game font, shrunk (then wrapped on ' · ' / ': ' / the middle space) to fit the view,
+  // every line centred from its measured ink box. Slam-in animates the font size, never ctx.scale.
   let stamps = [];
   const STAMP = {
     good: { fill: PAL.doSon, ink: PAL.vangKim, edge: PAL.vangKim },
     gold: { fill: PAL.vangKim, ink: PAL.denSon, edge: PAL.doSon },
     bad: { fill: PAL.denSon, ink: PAL.doSon, edge: PAL.doSon },
   };
-  function stamp(str, kind, x, y) { stamps.push({ str: String(str), kind: STAMP[kind] ? kind : 'good', x: x, y: y, age: 0, hit: false }); }
+  function stamp(str, kind, x, y) { stamps.push({ str: String(str), kind: STAMP[kind] ? kind : 'good', x: x, y: y, age: 0, hit: false, lay: null }); }
+  function splitTwo(str) {
+    const seps = [' · ', ': ', '. ', ' '], mid = str.length / 2;
+    for (const sp of seps) {
+      let best = -1, bd = 1e9, i = str.indexOf(sp);
+      while (i >= 0) { const d = Math.abs(i + sp.length / 2 - mid); if (d < bd) { bd = d; best = i; } i = str.indexOf(sp, i + 1); }
+      if (best > 0) return [str.slice(0, best + (sp === '. ' ? 1 : sp === ': ' ? 1 : 0)).trim(), str.slice(best + sp.length).trim()];
+    }
+    return [str];
+  }
+  function layoutStamp(str, v, maxW) {
+    let size = clamp(Math.min(v.w * 0.06, v.h * 0.085), 22, 60) * FX.textScale;
+    const fits = (lines, sz) => Math.max.apply(null, lines.map((l) => tw(l, sz))) + sz * 1.6 <= maxW;
+    let lines = [str];
+    while (size > 15 && !fits(lines, Math.round(size))) size -= 1;
+    if (!fits(lines, Math.round(size))) {
+      lines = splitTwo(str); size = Math.max(size, 20);
+      while (size > 13 && !fits(lines, Math.round(size))) size -= 1;
+    }
+    return { lines: lines, size: Math.round(size) };
+  }
   function drawStamps(ctx) {
-    const S = M.stamp, v = viewOf(ctx);
+    if (!stamps.length || !TL.Art) return;
+    const S = M.stamp, v = viewOf(ctx), A = TL.Art;
     for (const s of stamps) {
+      if (!s.lay) s.lay = layoutStamp(s.str, v, v.w * 0.92);
       let sc = 1, al = 1;
       if (s.age < S.in) { const k = s.age / S.in; sc = S.from + (1 - S.from) * outBack(k, 1.2); al = Math.min(1, k * 3); }
-      else if (s.age > S.in + S.hold) { const k = (s.age - S.in - S.hold) / S.out; al = 1 - k; sc = 1 + 0.12 * k; }
-      const d = STAMP[s.kind], size = clamp(v.w * 0.07, 24, 60) * FX.textScale;
-      ctx.font = font(size);
-      const w = ctx.measureText(s.str).width + size * 1.1, h = size * 1.55, lw = Math.max(3, size * 0.09);
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, al);
-      ctx.translate(Math.round(s.x != null ? s.x : v.w / 2), Math.round(s.y != null ? s.y : v.h * 0.42));
-      ctx.rotate(-5 * Math.PI / 180); ctx.scale(sc, sc);
-      plate(ctx, -w / 2, -h / 2, w, h, d.fill, null, Math.round(size * 0.12));
-      ctx.strokeStyle = d.edge; ctx.lineWidth = lw; ctx.strokeRect(-w / 2 + lw * 1.5, -h / 2 + lw * 1.5, w - lw * 3, h - lw * 3);
-      text(ctx, s.str, 0, size * 0.04, { size: size, color: d.ink, align: 'center', outline: false, shadow: false });
+      else if (s.age > S.in + S.hold) { const k = (s.age - S.in - S.hold) / S.out; al = 1 - k; sc = 1 + 0.08 * k; }
+      sc = Math.min(sc, 1.6); sc = Math.round(sc * 20) / 20;
+      const d = STAMP[s.kind], size = Math.max(10, Math.round(s.lay.size * sc)), lines = s.lay.lines;
+      let wmax = 0, lh = 0;
+      for (const l of lines) { const m = A.measure(l, size); wmax = Math.max(wmax, m.w); lh = Math.max(lh, Math.ceil(m.asc + m.desc)); }
+      const gap = Math.round(size * 0.35), lw = Math.max(2, Math.round(size * 0.07));
+      const bw = Math.ceil(wmax + size * 1.4), bh = Math.ceil(lines.length * lh + (lines.length - 1) * gap + size * 0.95);
+      const cx = s.x != null ? s.x : v.w / 2, cy = s.y != null ? s.y : v.h * 0.42;
+      const x = Math.round(clamp(cx - bw / 2, 4, Math.max(4, v.w - bw - 8))), y = Math.round(clamp(cy - bh / 2, 4, Math.max(4, v.h - bh - 10)));
+      ctx.save(); ctx.globalAlpha = Math.max(0, al);
+      A.panel(ctx, { x: x, y: y, w: bw, h: bh }, { fill: d.fill, border: false, shadow: PAL.denSon, radius: Math.max(3, Math.round(size * 0.18)), shadowY: Math.max(3, Math.round(size * 0.14)) });
+      const ins = Math.round(lw * 1.8);
+      A.panel(ctx, { x: x + ins, y: y + ins, w: bw - 2 * ins, h: bh - 2 * ins }, { fill: d.fill, border: d.edge, shadow: false, radius: Math.max(2, Math.round(size * 0.1)), bw: lw });
+      const top = y + (bh - (lines.length * lh + (lines.length - 1) * gap)) / 2;
+      lines.forEach((l, i) => A.textC(ctx, l, x + bw / 2, top + i * (lh + gap) + lh / 2, { size: size, color: d.ink, align: 'center', outline: false, shadow: false }));
       ctx.restore();
     }
   }
