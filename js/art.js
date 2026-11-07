@@ -776,8 +776,8 @@
     let t = TC.get(key); if (t) return t;
     const ow = outline === false ? 0 : 2, sh = shadow === false ? 0 : 2;
     const px = Math.round(size * s), bw = Math.max(1, Math.round(px / 24));
-    const pad = Math.ceil((ow + 1) * s) + 1, w = Math.ceil((textWidth(str, size) + size * 0.12) * s) + 2 * pad + bw, h = Math.ceil(size * 1.4 * s) + 2 * pad + Math.ceil(sh * s);
-    const base = pad + Math.round(size * 0.95 * s);
+    const pad = Math.ceil((ow + 1) * s) + 1, w = Math.ceil((textWidth(str, size) + size * 0.12) * s) + 2 * pad + bw, top = Math.ceil(size * 0.35 * s), h = Math.ceil(size * 1.4 * s) + 2 * pad + Math.ceil(sh * s) + top;   // top = headroom for stacked Vietnamese marks
+    const base = pad + top + Math.round(size * 0.95 * s);
     const font = px + 'px ' + FONT_STACK;
     const mask = function (offs) {
       const c = scratchCtx(w, h); c.font = font; c.textBaseline = 'alphabetic'; c.fillStyle = '#000';
@@ -806,7 +806,7 @@
       if (c) { im.data[i * 4] = c[0]; im.data[i * 4 + 1] = c[1]; im.data[i * 4 + 2] = c[2]; im.data[i * 4 + 3] = 255; }
     }
     cx.putImageData(im, 0, 0);
-    t = { cv: cv, pad: pad };
+    t = { cv: cv, pad: pad, top: top };
     if (TC.size > 500) TC.clear();
     TC.set(key, t);
     return t;
@@ -817,7 +817,7 @@
     const size = o.size || 16, s = devScale(ctx), w = textWidth(str, size);
     const t = textBitmap(str, size, o.color || PALN.giayDo, o.outline === undefined ? undefined : o.outline, o.shadow === undefined ? undefined : o.shadow, s);
     const x0 = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
-    const tr = ctx.getTransform(), px = Math.round(x0 * s + tr.e - t.pad), py = Math.round(y * s + tr.f - t.pad);
+    const tr = ctx.getTransform(), px = Math.round(x0 * s + tr.e - t.pad), py = Math.round(y * s + tr.f - t.pad - t.top);
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
     ctx.drawImage(t.cv, px, py); ctx.restore();
     return w;
