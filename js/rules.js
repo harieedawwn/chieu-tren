@@ -1,6 +1,6 @@
 /* js/rules.js  (owner RULES) ván engine, SPEC §5 and §8. Pure logic, no DOM, randomness only via opts.rng. Needs config, cards.
  * API  (state = VanState per SPEC §4; every call mutates state and appends the returned events to state.log)
- *   TL.Rules.newVan({rng, handSize?, leader?, mods, scoreFn}) -> VanState  (initial events already in state.log)
+ *   TL.Rules.newVan({rng, handSize?, leader?, mods, scoreFn, hands?}) -> VanState  (initial events already in state.log)
  *   TL.Rules.play(state, seat, cardIds) -> Event[]   [] and no change if illegal (turn, hand, combo, beat, noChat)
  *   TL.Rules.pass(state, seat)          -> Event[]   [] and no change if illegal (leader, mustBeat, turn)
  *   TL.Rules.legal(state, seat)         -> {plays: Combo[], canPass}   empty when not seat's turn or ván over
@@ -23,8 +23,9 @@
 
   function newVan(o) {
     const n = o.handSize || CFG.HAND_SIZE, d = Array.from({ length: 52 }, (_, i) => i), mods = o.mods || {};
-    for (let i = 51; i > 0; i--) { const j = Math.floor(o.rng() * (i + 1)); const t = d[i]; d[i] = d[j]; d[j] = t; }
-    const hands = [d.slice(0, n).sort(asc), d.slice(n, 2 * n).sort(asc)], low = Math.min(...d.slice(0, 2 * n));
+    if (!o.hands) for (let i = 51; i > 0; i--) { const j = Math.floor(o.rng() * (i + 1)); const t = d[i]; d[i] = d[j]; d[j] = t; }
+    const hands = o.hands ? [o.hands[0].slice().sort(asc), o.hands[1].slice().sort(asc)] : [d.slice(0, n).sort(asc), d.slice(n, 2 * n).sort(asc)];   // o.hands = fixed deal (tutorial)
+    const low = Math.min(...hands[0], ...hands[1]);
     const leader = mods.oppLeads ? 1 : o.leader === 0 || o.leader === 1 ? o.leader : hands[0].includes(low) ? 0 : 1;
     const s = { hands: hands, table: null, vongPlays: [], pot: 0, turn: leader, leader: leader, mods: mods, plays: [0, 0], played: [],
       log: [], over: false, winner: null, toiTrang: null, reveal: [], scoreFn: o.scoreFn || zero };

@@ -2,7 +2,7 @@
  * API  (RunState is plain JSON, SPEC §4)
  *   TL.Run.create(seed) -> run            new run at chặng 1 bàn 1, phase 'ban'
  *   TL.Run.ban(run) -> BanInfo            current bàn (target, opp, luật nhà, mods, ván left)
- *   TL.Run.startVan(run) -> VanState      Rules.newVan with house mods + scoreFn bound to run; sets reveal (Thầy bói)
+ *   TL.Run.startVan(run, opts?) -> VanState      Rules.newVan with house mods + scoreFn bound to run; sets reveal (Thầy bói)
  *   TL.Run.record(run, events)            stats, Điểm bàn += pot on vòng won by seat 0, opponent take, lastWinner
  *   TL.Run.endVan(run, vanEndEvent) -> 'next'|'cleared'|'lost'   vanUsed++, vanNo++, applies vanBonus, floors Điểm bàn at 0
  *   TL.Run.payout(run) -> {lines:[{label, amount}], total}   applies once (repeat call returns the same lines)
@@ -39,11 +39,11 @@
     };
   }
 
-  function startVan(run) {
+  function startVan(run, opts) {
     const b = ban(run), rng = TL.makeRng((run.seed + 7919 * run.vanNo) >>> 0);
     run.van = { stack: 0, oppTake: 0 };
     const st = TL.Rules.newVan({
-      rng: rng, handSize: CFG.HAND_SIZE, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: b.mods,
+      rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
     });
     st.reveal = S.slotOf(run, 'thay_boi') >= 0 ? st.hands[1].slice(-CFG.QN.THAY_BOI_REVEAL) : [];

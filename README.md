@@ -26,6 +26,10 @@ Mùng Một chưa tới mà nhà nào cũng đã trải chiếu. Bạn ngồi xu
 </tr>
 </table>
 
+## Hướng dẫn
+
+Lần đầu bấm **Chơi mới**, Ông Táo hiện ra dạy một ván có sẵn bài: chọn đôi, xem Điểm × Thế, đè hay buông, chặt heo, ăn vòng. Bỏ qua được bất cứ lúc nào; xem lại trong **Cài đặt → Hướng dẫn**.
+
 ## Ăn vòng
 
 - Một **ván** chia mỗi bên 10 lá. Một **vòng** kéo dài đến khi có người bỏ lượt; người đánh cuối cùng **ăn trọn vòng**.

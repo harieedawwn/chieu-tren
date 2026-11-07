@@ -129,7 +129,7 @@
     DEVICES: [[360, 640], [390, 844], [844, 390], [768, 1024], [1024, 768], [1366, 768], [1920, 1080]], // 7-device fit list [w,h]
 
     // ---- platform ----
-    STORAGE: { save: 'chieutren.save', settings: 'chieutren.settings' }, // localStorage keys
+    STORAGE: { save: 'chieutren.save', settings: 'chieutren.settings', tut: 'chieutren.tut' }, // localStorage keys
     SAVE_VERSION: 1,      // RunState.v; load() rejects other versions
     AUTO_SPEED: 3,        // ?auto forces this speed
   };

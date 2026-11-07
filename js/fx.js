@@ -3,6 +3,7 @@
  *   FX.speed, FX.reducedMotion, FX.offset{x,y}, FX.time, FX.view{w,h} (default: canvas size), FX.pixel (css px per art px if no Game)
  *   FX.update(dt) / FX.draw(ctx) / FX.reset()       step all / draw flames+confetti+popups+stamps / clear everything
  *   FX.queue.add(fn, delay)   run fn after delay s (/speed), once earlier items are done; fn may return a hold time in s
+ *   FX.queue.wait(cond)       block the queue until cond() is true (checked every frame)
  *   FX.queue.busy() / FX.queue.clear()
  *   FX.after(delay, fn)       parallel one-shot timer (/speed)
  *   FX.tween(obj, props, dur, ease, {delay,onDone})  ease 'out'|'back'|'inout'|'spring'|'linear' -> {cancel()}; same keys steal
@@ -63,6 +64,7 @@
   let q = [], cur = null, curTimer = 0, curFired = false;
   const queue = {
     add(fn, delay) { q.push({ fn: fn, delay: Math.max(0, delay || 0) }); },
+    wait(cond) { q.push({ fn: null, until: cond, delay: 0 }); },   // blocks the queue until cond() is true (tutorial pauses)
     busy() { return !!cur || q.length > 0; },
     clear() { q = []; cur = null; curTimer = 0; curFired = false; },
   };
@@ -75,6 +77,7 @@
       }
       if (curTimer > b + 1e-9) { curTimer -= b; break; }
       b -= curTimer; curTimer = 0;
+      if (cur.until) { let ok = true; try { ok = !!cur.until(); } catch (e) { ok = true; } if (!ok) break; cur = null; continue; }
       if (!curFired) {
         const item = cur; curFired = true;
         let r;

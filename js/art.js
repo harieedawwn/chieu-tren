@@ -7,7 +7,7 @@
  *   TL.Art.back()                     canvas 48x64 (trong dong)
  *   TL.Art.quyNhan(id)                8 ids -> canvas 48x64, blank name bar at y 45-58
  *   TL.Art.sao(id)                    6 ids -> canvas 48x64, blank name bar at y 50-59
- *   TL.Art.portrait(oppId)            9 CHANG[].ban[].id -> canvas 48x48 (24x28 figure inside a lacquer frame)
+ *   TL.Art.portrait(oppId)            9 CHANG[].ban[].id + 'ong_tao' (tutorial guide) -> canvas 48x48 (24x28 figure inside a lacquer frame)
  *   TL.Art.icon(name)                 canvas 16x16: lixi van chang ban menu check cross star heo muc_tieu loa loa_tat
  *   TL.Art.text(ctx, str, x, y, {size,color,align,outline,shadow}) -> width   x,y = top of line box; crisp (binarised), cached
  *   TL.Art.textWidth(str, size)       -> px
@@ -356,6 +356,19 @@
   function dither(b, x0, y0, x1, y1, c, m) { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (b.get(x, y) === 'P' && (x + y) % (m || 3) === 0) b.set(x, y, c); }
 
   const CHARS = {
+    ong_tao: function () {   // Ông Táo: mũ cánh chuồn, áo đỏ, râu dài bạc
+      const b = fig(); body(b, 'R');
+      b.rect(10, 17, 4, 11, 'G'); b.poly([[7, 18], [10, 17.5], [10, 21], [8, 21]], 'G'); b.poly([[17, 18], [14, 17.5], [14, 21], [16, 21]], 'G');
+      b.poly([[6.5, 12], [17.5, 12], [16, 20], [12, 27], [8, 20]], 'P');          // long beard
+      for (let y = 14; y < 26; y += 2) { b.set(10, y, 'N'); b.set(13, y + 1, 'N'); }
+      b.rect(8, 12, 8, 1, 'K'); b.rect(10, 13, 4, 1, 'P'); b.set(11, 13, 'K'); b.set(12, 13, 'K'); // moustache over the mouth
+      b.ell(12, 8.5, 5, 4.4, 'P');                                                    // face over the beard top
+      b.rect(7, 2, 10, 5, 'K'); b.rect(6, 5, 12, 1, 'K'); b.rect(7, 6, 10, 1, 'G');   // hat crown + gold band
+      b.rect(0, 3, 7, 2, 'K'); b.rect(17, 3, 7, 2, 'K'); b.set(0, 3, 'G'); b.set(23, 3, 'G'); // cánh chuồn
+      b.set(8, 8, 'K'); b.set(9, 8, 'K'); b.set(14, 8, 'K'); b.set(15, 8, 'K'); b.set(9, 9, 'K'); b.set(14, 9, 'K'); // brows + eyes
+      b.set(11, 11, 'R'); b.set(12, 11, 'R');
+      return b.outline('K');
+    },
     thay_boi: function () {
       const b = fig(); body(b, 'N');
       b.poly([[9, 17.5], [15, 17.5], [12, 23]], 'G');
@@ -545,7 +558,7 @@
     },
   };
   const OPP = {   // portrait backdrops [top colour]
-    thim_ut: 'L', duong_tu: 'B', ba_noi: 'R', chu_bay: 'G', di_nam: 'L', chu_ba: 'R', bac_tam: 'B', anh_re: 'G', ong_sau: 'R',
+    ong_tao: 'L', thim_ut: 'L', duong_tu: 'B', ba_noi: 'R', chu_bay: 'G', di_nam: 'L', chu_ba: 'R', bac_tam: 'B', anh_re: 'G', ong_sau: 'R',
   };
   const QN_BG = { thay_boi: 'B', co_hang_xom: 'L', chu_xe_om: 'G', thang_ban_than: 'B', heo_dat: 'L', dan_cho_lon: 'B', ba_ban_xoi: 'R', ong_do: 'G' };
   const QN_IDS = ['thay_boi', 'co_hang_xom', 'chu_xe_om', 'thang_ban_than', 'heo_dat', 'dan_cho_lon', 'ba_ban_xoi', 'ong_do'];

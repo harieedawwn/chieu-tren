@@ -4,6 +4,7 @@
  *   setScreen('title'|'table'|'shop'|'end'|'settings'|'back', args): 'settings' opens as an overlay over the paused screen, 'back' closes it.
  *   Screen = {enter(args), exit(), update(dt), draw(ctx), pointer({type:'down'|'move'|'up', x, y, id}), key({key:'enter'|'space'|'h'|'s'|'esc'})}
  *   Frame: FX.update, screen.update, BG.render, clear, (shake offset) screen.draw, overlay.draw, FX.draw. dt is clamped to 1/20 s.
+ * The tutorial (tutorial.js) is drawn last and gets pointer/key first while it runs.
  * Flags: ?hud (fake mid-game HUD, no game) ?auto ?seed=N (read by the screens). Errors show a Vietnamese overlay (boot.js) instead of a blank page.
  */
 (function (TL) {
@@ -104,7 +105,10 @@
   function unlock() { try { if (TL.Audio && TL.Audio.unlock) TL.Audio.unlock(); } catch (e) {} }
   function bindInput() {
     const pos = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-    const send = (type, e) => { const s = top(); if (!s || !s.pointer) return; const p = pos(e); s.pointer({ type: type, x: p.x, y: p.y, id: e.pointerId }); };
+    const send = (type, e) => {
+      const s = top(); if (!s || !s.pointer) return; const p = pos(e);
+      if (TL.Tutorial && TL.Tutorial.on() && !Game.overlay && TL.Tutorial.pointer({ type: type, x: p.x, y: p.y, id: e.pointerId })) return;
+      s.pointer({ type: type, x: p.x, y: p.y, id: e.pointerId }); };
     canvas.addEventListener('pointerdown', guard(e => { e.preventDefault(); unlock(); try { canvas.setPointerCapture(e.pointerId); } catch (x) {} send('down', e); }, 'pointer'));
     canvas.addEventListener('pointermove', guard(e => { send('move', e); }, 'pointer'));
     const up = guard(e => { e.preventDefault(); send('up', e); }, 'pointer');
@@ -117,6 +121,7 @@
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = KEYS[e.key]; if (!k) return;
       e.preventDefault(); unlock(); if (e.repeat) return;
+      if (TL.Tutorial && TL.Tutorial.on() && !Game.overlay && TL.Tutorial.key(k)) return;
       const s = top(); if (s && s.key) s.key({ key: k });
     }, 'key'));
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
@@ -140,6 +145,7 @@
     if (Game.overlay && Game.overlay.draw) Game.overlay.draw(ctx);
     if (FX) FX.draw(ctx);
     ctx.restore();
+    if (TL.Tutorial && TL.Tutorial.on()) TL.Tutorial.draw(ctx, dt);
     const l = $('#loading'); if (l && !l.hidden) l.hidden = true;
   }, 'frame');
 

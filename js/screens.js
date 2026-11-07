@@ -93,7 +93,7 @@
       cards.forEach((s, i) => { s.deal({ x: L.zone.x + L.zone.w / 2, y: g.h + 90 }, 0.15 + i * 0.09, A.card(47 + i)); });
       FX.after(0.25, () => snd('shuffle'));
     }
-    const newGame = () => { const g = G(); g.run = TL.Run.create(newSeed()); g.setScreen('table'); };
+    const newGame = () => { const g = G(); g.run = TL.Run.create(newSeed()); if (TL.Tutorial && !g.flags.auto && !TL.Tutorial.done()) TL.Tutorial.begin(g.run); g.setScreen('table'); };
     function cont() {
       const g = G(), r = readSave();
       if (!r) { save = null; key = ''; return; }
@@ -198,6 +198,7 @@
       FX.reset(); if (TL.BG) TL.BG.setMood('shop');
       items = TL.Run.shop(run); cv = { lixi: run.money }; sel = null; lvl = null; fly = []; btns = Btns(); key = ''; note = null; busy = 0; menuDown = false;
       lay(); build(); buildBtns(); saveRun(run);
+      if (TL.Tutorial && !g.flags.auto) TL.Tutorial.onShop();
       shopS.forEach((s, i) => { if (s) s.deal({ x: L.dealFrom.x, y: L.dealFrom.y }, 0.1 + i * 0.1, texOf(items[i])); });
       snd('shuffle');
       if (g.flags.auto) auto();
@@ -332,6 +333,11 @@
       btns.draw(ctx);
       SP.drawAll(ctx, fly);
     }
+    function tutRects() {   // spotlight targets for the Chợ Tết tour
+      if (!L || !items) return null;
+      const cards = kind => L.card.filter((c, i) => items[i] && items[i].kind === kind);
+      return { qn: [{ x: L.own[0].x - 4, y: L.own[0].y - 4, w: L.own[4].x + L.own[4].w - L.own[0].x + 8, h: L.own[0].h + 8 }].concat(cards('qn')), sao: cards('sao'), lixi: [{ x: L.bar.x, y: L.bar.y, w: Math.min(170, L.bar.w), h: L.bar.h }] };
+    }
     function pointer(e) {
       if (e.type === 'move') { menuHov = inR(L.menu, e.x, e.y); btns.pointer(e); SP.hover([].concat(ownS, shopS).filter(Boolean), e.x, e.y); return; }
       if (e.type === 'down') {
@@ -352,7 +358,7 @@
       else if (e.key === 'enter') act('buy');
       else if (e.key === 'space') act('next');
     }
-    return { enter: enter, exit() {}, resize() { key = ''; }, update: update, draw: draw, pointer: pointer, key: key_ };
+    return { enter: enter, exit() {}, resize() { key = ''; }, update: update, draw: draw, pointer: pointer, key: key_, tutRects: tutRects };
   })();
 
   // ================================================================ END
@@ -439,16 +445,17 @@
       if (k === key) return; key = k;
       const X0 = sf.l + 8, X1 = w - sf.r - 8, Y0 = sf.t + 8, Y1 = h - sf.b - 8, two = h < 480 && w > 560, u = clamp(Math.round(Math.min(w, h) / 30), 14, 20);
       const pw = Math.min(X1 - X0, two ? 740 : 420), rowH = 56, bh = 50, titleH = 52, pad = 16, cols = two ? 2 : 1;
-      const rowsN = two ? 3 : 5, ph = titleH + rowsN * rowH + pad;
+      const rowsN = two ? 4 : 6, ph = titleH + rowsN * rowH + pad;
       const px = Math.round((X0 + X1) / 2 - pw / 2), py = Math.round(Math.max(Y0, (Y0 + Y1) / 2 - ph / 2)), cw = (pw - pad * 2 - (two ? 16 : 0)) / cols;
       const cell = (i) => ({ x: px + pad + (i % cols) * (cw + 16), y: py + titleH + Math.floor(i / cols) * rowH, w: cw });
       L = { panel: { x: px, y: py, w: pw, h: ph }, u: u, cells: [], bh: bh };
       const home = g.name !== 'title';
-      const defs = ['sound', 'speed', 'scan', 'red'];
+      const defs = ['sound', 'speed', 'scan', 'red', 'tut'];
+
       defs.forEach((id, i) => {
         const c = cell(i); L.cells.push({ id: id, c: c });
       });
-      const f1 = cell(4), f2 = two ? cell(5) : null;
+      const f1 = cell(two ? 6 : 5), f2 = two ? cell(7) : null, tutC = cell(4);
       L.foot = two ? [{ id: 'home', r: { x: f1.x, y: f1.y, w: cw, h: bh } }, { id: 'close', r: { x: f2.x, y: f2.y, w: cw, h: bh } }]
         : (() => { const half = (cw - 10) / 2; return [{ id: 'home', r: { x: f1.x, y: f1.y, w: half, h: bh } }, { id: 'close', r: { x: f1.x + half + 10, y: f1.y, w: half, h: bh } }]; })();
       L.home = home;
@@ -458,6 +465,8 @@
         if (o.id === 'speed') {
           const sw = Math.min(64, (cw - 80) / 3);
           CFG.MOTION.speeds.forEach((v, j) => list.push({ id: 'speed' + v, label: v + '×', r: { x: Math.round(c.x + cw - 3 * sw + j * sw), y: Math.round(c.y), w: Math.round(sw - 4), h: bh }, sel: st.speed === v, still: true }));
+        } else if (o.id === 'tut') {
+          list.push({ id: 'tut', label: T.settings.tutGo, r: { x: Math.round(tutC.x + cw - 110), y: Math.round(tutC.y), w: 110, h: bh }, still: false });
         } else {
           const on = o.id === 'sound' ? st.sound : o.id === 'scan' ? st.scanlines : st.reducedMotion;
           list.push({ id: o.id, label: on ? T.settings.on : T.settings.off, r: { x: Math.round(c.x + cw - 96), y: Math.round(c.y), w: 96, h: bh }, sel: on, still: true });
@@ -473,6 +482,7 @@
       else if (id === 'scan') st.scanlines = !st.scanlines;
       else if (id === 'red') st.reducedMotion = !st.reducedMotion;
       else if (id.indexOf('speed') === 0) st.speed = +id.slice(5);
+      else if (id === 'tut') { const g = G(); g.run = TL.Run.create(newSeed()); if (TL.Tutorial) TL.Tutorial.restart(g.run); g.setScreen('table'); return; }
       else if (id === 'home') { G().setScreen('title'); return; }
       else if (id === 'close') { G().setScreen('back'); return; }
       apply(); key = ''; snd('select');
@@ -483,8 +493,8 @@
       ctx.save(); ctx.globalAlpha = 0.72; ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, g.w, g.h); ctx.restore();
       A.panel(ctx, L.panel, { fill: PAL.nauCanhGian, border: PAL.vangKim, radius: 6 });
       txt(ctx, T.settings.title, L.panel.x + L.panel.w / 2, L.panel.y + 10, 28, PAL.vangKim, 'center');
-      const lab = { sound: T.settings.sound, speed: T.settings.speed, scan: T.settings.scanlines, red: T.settings.reduced };
-      L.cells.forEach(o => { const s = fit(lab[o.id], L.u + 2, o.c.w - (o.id === 'speed' ? 3 * 60 : 96) - 12, 10); txt(ctx, lab[o.id], o.c.x, o.c.y + (L.bh - s * 1.15 - 4) / 2, s, PAL.giayDo, 'left'); });
+      const lab = { sound: T.settings.sound, speed: T.settings.speed, scan: T.settings.scanlines, red: T.settings.reduced, tut: T.settings.tut };
+      L.cells.forEach(o => { const s = fit(lab[o.id], L.u + 2, o.c.w - (o.id === 'speed' ? 3 * 60 : o.id === 'tut' ? 110 : 96) - 12, 10); txt(ctx, lab[o.id], o.c.x, o.c.y + (L.bh - s * 1.15 - 4) / 2, s, PAL.giayDo, 'left'); });
       btns.draw(ctx);
     }
     function pointer(e) {
