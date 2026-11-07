@@ -167,7 +167,7 @@
         document.fonts.forEach(f => { if (/GameFont/.test(f.family) && f.unicodeRange && f.unicodeRange !== 'U+0-10FFFF') drop.push(f); });
         drop.forEach(f => document.fonts.delete(f));
       } catch (e) {}
-      return document.fonts.load('900 20px GameFont', 'Chiếu Trên ơưặễộừ').catch(() => null);
+      return document.fonts.load('900 20px GameFont', 'Chiếu Trên ơưặễộừ').catch(() => null).then(() => { try { TL.Art.resetText(); } catch (e) {} });
     }).then(guard(() => {
       resize(); Game.applySettings();
       Game.setScreen(Game.flags.hud ? 'table' : (TL.Screens && TL.Screens.title ? 'title' : 'table'));

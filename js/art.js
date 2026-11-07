@@ -776,7 +776,7 @@
     let t = TC.get(key); if (t) return t;
     const ow = outline === false ? 0 : 2, sh = shadow === false ? 0 : 2;
     const px = Math.round(size * s), bw = Math.max(1, Math.round(px / 24));
-    const pad = Math.ceil((ow + 1) * s) + 1, w = Math.ceil(textWidth(str, size) * s) + 2 * pad + bw, h = Math.ceil(size * 1.4 * s) + 2 * pad + Math.ceil(sh * s);
+    const pad = Math.ceil((ow + 1) * s) + 1, w = Math.ceil((textWidth(str, size) + size * 0.12) * s) + 2 * pad + bw, h = Math.ceil(size * 1.4 * s) + 2 * pad + Math.ceil(sh * s);
     const base = pad + Math.round(size * 0.95 * s);
     const font = px + 'px ' + FONT_STACK;
     const mask = function (offs) {
@@ -917,6 +917,6 @@
     sao: function (id) { return memo('s' + id, function () { return buildSao(id); }); },
     portrait: function (id) { return memo('p' + id, function () { return buildPortrait(id); }); },
     icon: function (name) { return memo('i' + name, function () { return buildIcon(name); }); },
-    text: text, textC: textC, measure: measure, badge: badge, badgeSize: badgeSize, slot: slot, textWidth: textWidth, panel: panel, button: button,
+    resetText: function () { TC.clear(); WC.clear(); MC.clear(); }, text: text, textC: textC, measure: measure, badge: badge, badgeSize: badgeSize, slot: slot, textWidth: textWidth, panel: panel, button: button,
   };
 })(globalThis.TL = globalThis.TL || {});
