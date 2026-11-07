@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chiếu Trên — demo FX</title>
+<style>
+  :root { --den:#1B1412; --nau:#4A2418; --do:#A3271F; --vang:#D9A441; --lam:#2E5E8C; --giay:#EADCC0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--den); overflow: hidden; overscroll-behavior: none; }
+  body { font-family: "Be Vietnam Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--giay); }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; height: 100%; }
+  canvas { display: block; flex: 1 1 auto; min-height: 0; width: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #bar { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;
+         padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+         background: var(--den); border-top: 3px solid var(--nau); }
+  button { font: 700 17px/1.4 inherit; font-family: inherit; min-height: 48px; min-width: 48px; padding: 0 16px; color: var(--giay);
+           background: var(--do); border: 3px solid var(--den); border-radius: 0; box-shadow: 0 4px 0 #000; cursor: pointer; touch-action: manipulation; }
+  button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+  button:focus-visible { outline: 3px solid var(--vang); outline-offset: 2px; }
+  button:disabled { background: var(--nau); color: #8a7560; cursor: default; }
+  .act { flex: 1 1 120px; max-width: 200px; }
+  #chat { background: var(--vang); color: var(--den); }
+  #chat:disabled { background: var(--nau); color: #8a7560; }
+  #speed { display: flex; gap: 6px; }
+  #speed button { background: var(--nau); }
+  #speed button[aria-pressed="true"] { background: var(--vang); color: var(--den); }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="c" aria-label="Bàn chơi thử hiệu ứng"></canvas>
+  <div id="bar">
+    <button id="play" class="act" type="button">Đánh</button>
+    <button id="chat" class="act" type="button">Chặt</button>
+    <div id="speed" role="group" aria-label="Tốc độ">
+      <button type="button" data-s="1" aria-pressed="true">1×</button>
+      <button type="button" data-s="2" aria-pressed="false">2×</button>
+      <button type="button" data-s="3" aria-pressed="false">3×</button>
+    </div>
+  </div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/fx.js"></script>
+<script src="../js/sprite.js"></script>
+<script>
+(function (TL) {
+  'use strict';
+  const CFG = TL.CFG, M = CFG.MOTION, PAL = CFG.PAL, FX = TL.FX, Sprite = TL.Sprite;
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const TARGET = 1000;
+  let W = 0, H = 0, dpr = 1, scale = 2, cw = 96, ch = 128;
+  let handRect, tableRect, potRect, diemRect, theRect, boxY, deck;
+
+  FX.reducedMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // ---------- placeholder textures (48x64 canvases) ----------
+  const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'], SUITS = ['♠', '♣', '♦', '♥'];
+  function cut(g, x, y, w, h, col) { g.fillStyle = col; g.fillRect(x + 1, y, w - 2, h); g.fillRect(x, y + 1, w, h - 2); }
+  const texCache = {};
+  function cardTex(c) {
+    const key = c.rank + ':' + c.suit;
+    if (texCache[key]) return texCache[key];
+    const t = document.createElement('canvas'); t.width = 48; t.height = 64;
+    const g = t.getContext('2d'), red = c.suit >= 2, ink = red ? PAL.doSon : PAL.denSon;
+    cut(g, 0, 0, 48, 64, PAL.denSon); cut(g, 2, 2, 44, 60, PAL.giayDo);
+    g.fillStyle = ink; g.textBaseline = 'top';
+    g.font = 'bold 15px monospace'; g.textAlign = 'left'; g.fillText(RANKS[c.rank], 5, 5);
+    g.font = 'bold 26px monospace'; g.textAlign = 'center'; g.fillText(SUITS[c.suit], 24, 26);
+    if (c.rank === 12) { g.fillStyle = PAL.vangKim; g.fillRect(34, 6, 8, 8); }      // heo marker
+    return (texCache[key] = t);
+  }
+  const backTex = (function () {
+    const t = document.createElement('canvas'); t.width = 48; t.height = 64; const g = t.getContext('2d');
+    cut(g, 0, 0, 48, 64, PAL.denSon); cut(g, 2, 2, 44, 60, PAL.nauCanhGian);
+    g.strokeStyle = PAL.vangKim; g.lineWidth = 2; g.strokeRect(6, 6, 36, 52);
+    g.fillStyle = PAL.doSon; g.beginPath(); g.moveTo(24, 18); g.lineTo(36, 32); g.lineTo(24, 46); g.lineTo(12, 32); g.closePath(); g.fill();
+    g.fillStyle = PAL.vangKim; g.fillRect(22, 30, 4, 4);
+    return t;
+  })();
+
+  // ---------- state ----------
+  const rng = TL.makeRng(20260107);
+  let deckCards = [], hand = [], table = [], victims = [];
+  const pot = { v: 120 }, diem = { v: 0 }, the = { v: 0 };
+  function newDeck() {
+    deckCards = [];
+    for (let r = 0; r < 13; r++) for (let s = 0; s < 4; s++) deckCards.push({ rank: r, suit: s });
+    for (let i = deckCards.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = deckCards[i]; deckCards[i] = deckCards[j]; deckCards[j] = t; }
+  }
+  const byRank = (a, b) => a.card.rank - b.card.rank || a.card.suit - b.card.suit;
+  const mk = (card, tex, x, y) => { const s = Sprite.create({ tex: tex, x: x, y: y, scale: scale }); s.card = card; return s; };
+  function draw1() { if (!deckCards.length) newDeck(); return deckCards.pop(); }
+
+  // ---------- layout ----------
+  function layout() {
+    cw = 48 * scale / dpr; ch = 64 * scale / dpr;
+    const pad = 8;
+    potRect = { w: Math.min(220, W * 0.6), h: 44, y: pad }; potRect.x = W / 2 - potRect.w / 2;
+    const bw = Math.min(150, W * 0.36), bh = 50, gap = 34; boxY = potRect.y + potRect.h + 12;
+    diemRect = { x: W / 2 - gap / 2 - bw, y: boxY, w: bw, h: bh };
+    theRect = { x: W / 2 + gap / 2, y: boxY, w: bw, h: bh };
+    handRect = { x: W * 0.03, y: H - ch * 1.1 - ch * 0.12 - 8, w: W * 0.94, h: ch * 1.1 };
+    const top = boxY + bh + 34, bot = handRect.y - M.lift - 4;
+    tableRect = { x: W * 0.08, y: (top + bot) / 2 - ch / 2, w: W * 0.84, h: ch };
+    deck = { x: W - cw * 0.4, y: -ch * 0.15 };
+    FX.pixel = scale / dpr; FX.view = { w: W, h: H }; FX.textScale = clamp(W / 420, 0.85, 1.4);
+  }
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2); W = r.width; H = r.height;
+    cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
+    scale = Math.max(1, Math.min(Math.floor(CFG.LAYOUT.cardHFrac * H * dpr / 64), Math.floor(0.3 * W * dpr / 48)));
+    layout();
+    [hand, table, victims].forEach((l) => l.forEach((s) => { s.scale = scale; }));
+    Sprite.fan(hand, handRect); Sprite.fan(table, tableRect, { curve: 0.3 });
+  }
+
+  // ---------- setup ----------
+  function startHand() {
+    newDeck(); hand = [];
+    for (let i = 0; i < CFG.HAND_SIZE; i++) { const c = draw1(); hand.push(mk(c, cardTex(c), deck.x, deck.y)); }
+    hand.sort(byRank); Sprite.fan(hand, handRect);
+    hand.forEach((s, i) => s.deal(deck, i * M.deal.stagger, cardTex(s.card)));
+    hand.forEach((s) => { s.tex = backTex; });
+  }
+
+  function refill() {
+    const need = CFG.HAND_SIZE - hand.length, fresh = [];
+    for (let i = 0; i < need; i++) { const c = draw1(), s = mk(c, backTex, deck.x, deck.y); fresh.push(s); hand.push(s); }
+    hand.sort(byRank); Sprite.fan(hand, handRect);
+    fresh.forEach((s, i) => s.deal(deck, i * M.deal.stagger, cardTex(s.card)));
+    return need * M.deal.stagger + M.deal.fly;
+  }
+  const popAt = (s) => {                         // popups from one card fan out sideways instead of stacking up
+    const n = s._pn || 0; s._pn = n + 1;
+    const side = n === 0 ? 0 : n % 2 ? 1 : -1, ph = Math.max(16, Math.round(9 * FX.artPx())) * 1.5 * FX.textScale;
+    return { x: clamp(s.V.x + side * cw * 0.8, 50, W - 50), y: s.V.y - ch * 0.6 - (n ? ph * 0.4 : 0) };
+  };
+  const potPopY = () => boxY + 50 + 38;
+
+  // ---------- Đánh: 4 scoring steps into the pot ----------
+  function doPlay() {
+    if (FX.queue.busy()) return;
+    let sel = hand.filter((s) => s.selected);
+    if (!sel.length) { sel = hand.slice().sort(() => rng() - 0.5).slice(0, 3); }
+    sel.sort((a, b) => a.T.x - b.T.x);
+    hand = hand.filter((s) => sel.indexOf(s) < 0);
+    const pts = (s) => CFG.CARD_PTS[s.card.rank], first = sel[0], last = sel[sel.length - 1], mid = sel[Math.floor(sel.length / 2)];
+    let D = 30, T = 3; const Q = FX.queue;
+    Q.add(() => {
+      table = sel; sel.forEach((s) => { s.selected = false; s.sway = false; s._pn = 0; });
+      Sprite.fan(sel, tableRect, { curve: 0.3, dur: M.play.fly }); Sprite.fan(hand, handRect);
+      diem.v = 0; the.v = 0; FX.counter(diem, 'v', D); FX.counter(the, 'v', T);
+      return M.play.fly + 0.1;
+    }, 0);
+    const gap = FX.stepGap(4), steps = [
+      () => { D += pts(first); FX.popup('+' + pts(first), popAt(first).x, popAt(first).y, 'diem'); first.juice(1); FX.counter(diem, 'v', D); },
+      () => { D += pts(last); FX.popup('+' + pts(last), popAt(last).x, popAt(last).y, 'diem'); last.juice(1); FX.counter(diem, 'v', D); },
+      () => { T += 4; FX.popup('+4 Thế', popAt(mid).x, popAt(mid).y, 'the'); mid.juice(1); FX.counter(the, 'v', T); },
+      () => { T *= 2; FX.popup('×2 Thế', popAt(mid).x, popAt(mid).y, 'xthe'); mid.juice(1.3); FX.counter(the, 'v', T); },
+    ];
+    steps.forEach((fn, i) => Q.add(() => { fn(); window.__tick = FX.tickPitch(i); return 0; }, i === 0 ? 0 : gap));
+    Q.add(() => {
+      const total = D * T;
+      sel.forEach((s) => {
+        s.moveTo(W / 2, potRect.y + potRect.h / 2, M.play.slam, 0);
+        FX.tween(s.T, { sx: 0.25, sy: 0.25 }, M.play.slam, 'out', { onDone: () => { s.dead = true; } });
+      });
+      FX.after(M.play.slam * 0.8, () => {
+        FX.counter(pot, 'v', pot.v + total); FX.shake(FX.shakeFor(total));
+        FX.popup('+' + TL.fmt(total), W / 2, potPopY(), 'gold');
+      });
+      return M.play.slam + M.play.hold;
+    }, gap);
+    Q.add(() => { table = []; return refill(); }, 0);
+  }
+
+  // ---------- Chặt: stamp, confetti, shake, dissolve, pot ×2 ----------
+  function doChat() {
+    if (FX.queue.busy()) return;
+    let sel = hand.filter((s) => s.selected);
+    if (!sel.length) sel = hand.slice(0, 3);
+    sel.sort((a, b) => a.T.x - b.T.x);
+    hand = hand.filter((s) => sel.indexOf(s) < 0);
+    const Q = FX.queue, cy = tableRect.y + tableRect.h / 2;
+    const victim = mk({ rank: 12, suit: 0 }, cardTex({ rank: 12, suit: 0 }), cw * 0.4, -ch);
+    victim.sway = false; victims = [victim];
+    Q.add(() => { victim.T.rot = -4; victim.moveTo(W * 0.3, cy, M.play.fly + 0.1, -4); return M.play.fly + 0.25; }, 0);
+    Q.add(() => {
+      table = sel; sel.forEach((s) => { s.selected = false; s.sway = false; });
+      Sprite.fan(sel, { x: W * 0.4, y: tableRect.y, w: W * 0.52, h: ch }, { curve: 0.3, dur: M.play.fly }); Sprite.fan(hand, handRect);
+      return M.play.fly + 0.1;
+    }, 0);
+    Q.add(() => {
+      FX.stamp('CHẶT!', 'gold'); FX.confetti(W / 2, cy); FX.confetti(W * 0.3, cy, 30);
+      victim.dissolve(); sel.forEach((s, i) => FX.after(i * 0.06, () => s.juice(1)));
+      return 0.5;
+    }, 0);
+    Q.add(() => {
+      FX.counter(pot, 'v', pot.v * CFG.CHAT_X);
+      FX.popup('×' + CFG.CHAT_X + ' Pot', W / 2, potPopY(), 'xthe');
+      FX.shake(4);
+      return M.stamp.hold;
+    }, 0);
+    Q.add(() => {
+      sel.forEach((s) => { s.moveTo(W / 2, potRect.y + potRect.h / 2, M.play.slam, 0); FX.tween(s.T, { sx: 0.25, sy: 0.25 }, M.play.slam, 'out', { onDone: () => { s.dead = true; } }); });
+      return M.play.slam;
+    }, 0);
+    Q.add(() => { table = []; victims = []; return refill(); }, 0);
+  }
+
+  // ---------- input (mouse + touch via pointer events) ----------
+  let down = null;
+  const local = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  cv.addEventListener('pointermove', (e) => { const p = local(e); if (e.pointerType === 'mouse' || down) Sprite.hover(hand, p.x, p.y); });
+  cv.addEventListener('pointerdown', (e) => {
+    const p = local(e); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    Sprite.hover(hand, p.x, p.y); down = { s: FX.queue.busy() ? null : Sprite.pick(hand, p.x, p.y) };
+  });
+  cv.addEventListener('pointerup', (e) => {
+    const p = local(e), s = down && down.s;
+    if (s && !FX.queue.busy() && s === Sprite.pick(hand, p.x, p.y)) s.selected = !s.selected;
+    down = null; if (e.pointerType !== 'mouse') Sprite.hover(hand); else Sprite.hover(hand, p.x, p.y);
+  });
+  cv.addEventListener('pointercancel', () => { down = null; Sprite.hover(hand); });
+  cv.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') Sprite.hover(hand); });
+  const bPlay = document.getElementById('play'), bChat = document.getElementById('chat');
+  bPlay.addEventListener('click', doPlay); bChat.addEventListener('click', doChat);
+  const speedBtns = Array.from(document.querySelectorAll('#speed button'));
+  function setSpeed(n) { FX.speed = n; speedBtns.forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.s === n))); }
+  speedBtns.forEach((b) => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doPlay(); } else if (e.key === 'c' || e.key === 'C') doChat();
+    else if (e.key >= '1' && e.key <= '3') setSpeed(+e.key); else if (e.key === 'r' || e.key === 'R') FX.reducedMotion = !FX.reducedMotion;
+  });
+  addEventListener('resize', resize);
+  window.demo = { play: doPlay, chat: doChat, setSpeed: setSpeed, FX: FX, state: () => ({ hand: hand.length, pot: pot.v, busy: FX.queue.busy() }) };
+
+  // ---------- draw ----------
+  function plate(x, y, w, h, fill, edge) {
+    x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y + 4, w, h);
+    ctx.fillStyle = fill; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = edge || PAL.denSon; ctx.lineWidth = 3; ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+  }
+  function box(r, fill, obj) {
+    const j = FX.juiceOf(obj);
+    ctx.save(); ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.rotate(j.r * Math.PI / 180); ctx.scale(j.s, j.s);
+    plate(-r.w / 2, -r.h / 2, r.w, r.h, fill);
+    FX.text(ctx, TL.fmt(obj.v), 0, 2, { size: 28 * FX.textScale, color: PAL.giayDo, align: 'center', outline: false, shadow: false });
+    ctx.restore();
+  }
+  function drawScene() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = PAL.nauCanhGian; ctx.fillRect(0, H * 0.55, W, H * 0.25);
+    ctx.fillStyle = PAL.laXanh; ctx.fillRect(0, H * 0.8, W, H * 0.2);
+    ctx.save(); ctx.translate(FX.offset.x, FX.offset.y);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(tableRect.x - 8, tableRect.y - 8, tableRect.w + 16, tableRect.h + 16);
+    // deck pile (top right, half off screen)
+    for (let i = 2; i >= 0; i--) { ctx.save(); ctx.translate(deck.x + i * 2, deck.y + i * 2); ctx.drawImage(backTex, -cw / 2, -ch / 2, cw, ch); ctx.restore(); }
+    // pot
+    const pj = FX.juiceOf(pot);
+    ctx.save(); ctx.translate(potRect.x + potRect.w / 2, potRect.y + potRect.h / 2); ctx.rotate(pj.r * Math.PI / 180); ctx.scale(pj.s, pj.s);
+    plate(-potRect.w / 2, -potRect.h / 2, potRect.w, potRect.h, PAL.nauCanhGian, PAL.vangKim);
+    FX.text(ctx, 'Pot', -potRect.w / 2 + 12, 0, { size: 14, color: PAL.giayDo, outline: false, shadow: false });
+    FX.text(ctx, TL.fmt(pot.v), potRect.w / 2 - 12, 2, { size: 26, color: PAL.vangKim, align: 'right', outline: false, shadow: false });
+    ctx.restore();
+    box(diemRect, PAL.menLam, diem); box(theRect, PAL.doSon, the);
+    FX.text(ctx, '×', W / 2, boxY + 27, { size: 28, color: PAL.vangKim, align: 'center' });
+    FX.text(ctx, 'Mục tiêu ' + TL.fmt(TARGET) + ' — vượt thì bốc lửa', W / 2, boxY + 50 + 14, { size: 12, color: PAL.giayDo, align: 'center', outline: false });
+    FX.flame(diemRect, pot.v >= TARGET); FX.flame(theRect, pot.v >= TARGET);
+    Sprite.drawAll(ctx, victims); Sprite.drawAll(ctx, table); Sprite.drawAll(ctx, hand);
+    FX.draw(ctx);
+    ctx.restore();
+  }
+
+  let last = 0, wasBusy = false, errored = false;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (errored) return;
+    try {
+      const dt = last ? (t - last) / 1000 : 0; last = t;
+      FX.update(dt);
+      for (const l of [hand, table, victims]) for (const s of l) s.update(dt);
+      victims = victims.filter((s) => !s.dead); table = table.filter((s) => !s.dead);
+      const busy = FX.queue.busy();
+      if (busy !== wasBusy) { bPlay.disabled = bChat.disabled = busy; wasBusy = busy; }
+      drawScene();
+    } catch (e) { errored = true; console.error(e); }
+  }
+  resize(); startHand(); requestAnimationFrame(frame);
+})(globalThis.TL);
+</script>
+</body>
+</html>

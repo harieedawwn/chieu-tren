@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chiếu Trên · art demo (3×)</title>
+<style>
+  body { margin: 0; padding: 20px 24px 48px; background: #1B1412; color: #EADCC0; font: 14px/1.4 "Segoe UI", Roboto, Arial, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 22px; color: #D9A441; }
+  h2 { margin: 28px 0 10px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #D9A441; border-bottom: 1px solid #4A2418; padding-bottom: 4px; }
+  p { margin: 0 0 6px; color: #b9a98a; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  .cards { display: grid; grid-template-columns: repeat(13, max-content); gap: 8px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  figure { margin: 0; text-align: center; font-size: 11px; color: #8d7d63; }
+  figure canvas { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>Chiếu Trên — pixel art</h1>
+<p>Everything below is generated at init by <code>js/art.js</code> from palette-indexed grids. Shown at 3× (CSS pixelated), UI helpers drawn live at 3× ctx scale.</p>
+
+<h2>Cards 3..A,2 × ♠ ♣ ♦ ♥ (id = rank×4 + suit)</h2>
+<div class="cards" id="cards"></div>
+
+<h2>Back · Quý nhân (8) · Sao chiếu mệnh (6)</h2>
+<div class="row" id="misc"></div>
+
+<h2>Opponents (portrait 48×48): 6 table opponents, then the 3 luật nhà bosses</h2>
+<div class="row" id="opps"></div>
+
+<h2>Icons 16×16</h2>
+<div class="row" id="icons"></div>
+
+<h2>Cards at 1× (real size) and 2×</h2>
+<div class="row" id="small"></div>
+
+<h2>Live UI: text, panel, buttons (idle · hover · down · disabled)</h2>
+<canvas id="ui"></canvas>
+
+<script src="../js/config.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/art.js"></script>
+<script>
+(function () {
+  const A = TL.Art, S = 3;
+  function put(parent, cv, label, scale) {
+    const f = document.createElement('figure'), c = document.createElement('canvas');
+    c.width = cv.width; c.height = cv.height; c.style.width = cv.width * scale + 'px'; c.style.height = cv.height * scale + 'px';
+    const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(cv, 0, 0);
+    f.appendChild(c); if (label) { const t = document.createElement('div'); t.textContent = label; f.appendChild(t); }
+    parent.appendChild(f); return f;
+  }
+  A.init().then(function () {
+    const cards = document.getElementById('cards');
+    const grid = []; for (let s = 0; s < 4; s++) for (let r = 0; r < 13; r++) grid.push(r * 4 + s);
+    grid.forEach(function (id) { put(cards, A.card(id), '', S); });
+
+    const misc = document.getElementById('misc');
+    put(misc, A.back(), 'back', S);
+    TL.DATA && Object.keys(TL.DATA.QUY_NHAN).forEach(function (id) { put(misc, A.quyNhan(id), TL.DATA.QUY_NHAN[id].name, S); });
+    TL.DATA && Object.keys(TL.DATA.SAO).forEach(function (id) { put(misc, A.sao(id), TL.DATA.SAO[id].name, S); });
+
+    const opps = document.getElementById('opps'), order = [];
+    TL.DATA.CHANG.forEach(function (c) { c.ban.filter(function (b) { return b.kind !== 'trum'; }).forEach(function (b) { order.push(b); }); });
+    TL.DATA.CHANG.forEach(function (c) { order.push(c.ban[2]); });
+    order.forEach(function (b) { put(opps, A.portrait(b.id), b.name + (b.kind === 'trum' ? ' · luật nhà' : ''), S); });
+
+    const icons = document.getElementById('icons');
+    A._ids.icons.forEach(function (n) { put(icons, A.icon(n), n, S); });
+
+    const small = document.getElementById('small');
+    [0, 5, 30, 33, 43, 47, 51].forEach(function (id) { put(small, A.card(id), '', 1); });
+    [0, 5, 30, 33, 43, 47, 51].forEach(function (id) { put(small, A.card(id), '', 2); });
+    ['thay_boi', 'dan_cho_lon'].forEach(function (id) { put(small, A.quyNhan(id), '', 2); });
+    put(small, A.sao('thai_duong'), '', 2);
+
+    // live UI at 3x
+    const cv = document.getElementById('ui'), W = 520, H = 250;
+    cv.width = W * S; cv.height = H * S; cv.style.width = W * S + 'px'; cv.style.height = H * S + 'px';
+    const ctx = cv.getContext('2d'); ctx.scale(S, S); ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = TL.CFG.PAL.nauCanhGian; ctx.fillRect(0, 0, W, H);
+    A.panel(ctx, { x: 8, y: 8, w: 240, h: 112 }, {});
+    A.text(ctx, 'Chiếu Trên', 20, 16, { size: 32, color: TL.CFG.PAL.vangKim });
+    A.text(ctx, 'Tiến Lên ngày Tết.', 20, 46, { size: 16 });
+    A.text(ctx, 'Ăn trọn vòng. Thối heo. Cóng.', 20, 66, { size: 16 });
+    A.text(ctx, 'Thầy bói · Dân chơi Chợ Lớn', 20, 86, { size: 16, color: TL.CFG.PAL.vangKim });
+    A.panel(ctx, { x: 260, y: 8, w: 250, h: 112 }, { fill: TL.CFG.PAL.menLam, border: TL.CFG.PAL.giayDo });
+    A.text(ctx, '1.660', 272, 14, { size: 40 });
+    A.text(ctx, 'Điểm', 272, 56, { size: 20 });
+    A.text(ctx, '× 48 Thế', 340, 56, { size: 20, color: TL.CFG.PAL.vangKim });
+    A.text(ctx, 'Ông Sáu: Có đè là phải đè.', 272, 86, { size: 16 });
+    ['idle', 'hover', 'down', 'disabled'].forEach(function (st, i) {
+      A.button(ctx, { x: 8 + i * 128, y: 136, w: 120, h: 48 }, 'Đánh', st);
+      A.text(ctx, st, 8 + i * 128 + 60, 190, { size: 12, align: 'center', outline: false, shadow: false, color: TL.CFG.PAL.giayDo });
+    });
+    A.button(ctx, { x: 8, y: 206, w: 160, h: 40 }, 'Bỏ lượt', 'idle');
+    A.button(ctx, { x: 176, y: 206, w: 160, h: 40 }, 'Chơi tiếp', 'hover');
+    ctx.drawImage(A.icon('lixi'), 350, 214, 16, 16); ctx.drawImage(A.icon('heo'), 372, 214, 16, 16); ctx.drawImage(A.icon('star'), 394, 214, 16, 16);
+    A.text(ctx, '4', 416, 212, { size: 20, color: TL.CFG.PAL.vangKim });
+    document.title += ' · ready'; window.ARTREADY = true;
+  });
+})();
+</script>
+</body>
+</html>

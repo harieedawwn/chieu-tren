@@ -1,0 +1,130 @@
+Tên game chính thức: "Chiếu Trên" (bỏ các tên Chặt Heo, Tới Trắng, Ba Bích ở cuối file).
+
+Tớ nghĩ khá kỹ rồi. Cái quan trọng nhất là **đừng làm "Balatro thay poker bằng Tiến Lên"**. Trong Balatro cậu chơi một mình: tự chọn 5 lá rồi tự tính điểm. Tiến Lên hay ở chỗ có người đè lại mình: chặt heo, bỏ lượt, giữ heo tới cuối, đếm bài. Nếu chỉ đổi "flush, full house" thành "sảnh, đôi thông" thì game thành bản reskin và mất hết cái chất. Nên phần lõi phải là **đánh với đối thủ**, còn phần roguelike/deckbuilding của Balatro thì bọc bên ngoài.
+
+---
+
+## 1. Cơ chế lõi: "Ăn vòng"
+
+- Mỗi bàn là một ván Tiến Lên miền Nam, đánh 1v1. Bàn trùm có thể là bàn ba người.
+- Ai đánh một bộ ra thì bộ đó tính điểm ngay kiểu Balatro (**Điểm × Thế**, số nhảy lên ầm ầm), rồi cộng vào **điểm vòng** đặt giữa bàn.
+- **Ai thắng vòng thì ăn hết điểm vòng**, kể cả phần điểm do đối thủ đánh ra.
+- Hết ván thì tính theo luật thật: về nhất được thưởng theo số lá đối thủ còn trên tay, đối thủ **thối heo** hay **cóng** thì nhân thêm. Tổng điểm phải đạt mục tiêu thì mới qua bàn.
+
+**Ví dụ một vòng:** Đối thủ dẫn đôi 6 (+40). Cậu đè đôi J (+90, vòng lên 130). Đối thủ đè đôi heo (+200, vòng lên 330). Giờ cậu phải chọn:
+- **Bỏ:** đối thủ ăn 330.
+- **Chặt bằng tứ quý 8:** chặt heo nhân đôi cả vòng, thành (330+500)×2 = **1.660** vào tay cậu, đối thủ mất đôi heo. Đổi lại cậu hết bom, và đối thủ biết điều đó.
+
+Mỗi lần đè giống như một lần "tố": vòng càng kéo dài càng béo, còn bỏ lượt là buông cả vòng. Câu hỏi "có nên đè bằng heo không" vì thế vừa là chiến thuật vừa là bài toán kinh tế. Đây là thứ Balatro không có.
+
+## 2. Dễ chơi, khó giỏi
+
+**Người mới** chỉ cần hiểu "đánh bộ lớn hơn cùng kiểu". Có nút **Gợi ý** sáng lên những lá đè được, luật hiện ngay trên màn, mấy chặng đầu đối thủ đánh hiền.
+
+**Người giỏi** thì có cả đống chỗ để thể hiện:
+- **Chia bộ:** phá sảnh để giữ đôi, hay ngược lại. Đây vốn là kỹ năng thật của Tiến Lên.
+- **Giữ cái:** thắng vòng thì được dẫn, mà dẫn thì được chọn kiểu bộ.
+- **Đếm bài và đọc thói quen của từng trùm.**
+- **Biết lúc nào buông vòng.** Nhịn một vòng nhỏ để giữ heo cho vòng lớn.
+- **Build và kinh tế** như Balatro.
+
+Có một chi tiết thiết kế đáng làm: cho **món "thông tin"** (lật bài đối thủ, đếm heo hộ) đi chung kệ với **món "sát thương"**. Người mới mua thông tin để dễ thở. Người giỏi tự đếm được nên bỏ qua và lấy ô đó cho sức mạnh. Thế là độ chênh kỹ năng tự hiện ra mà không cần chỉnh độ khó.
+
+## 3. Bọc Balatro bằng đồ Việt
+
+| Balatro | Bản Việt | Ghi chú |
+|---|---|---|
+| Ante (8 cái) | **Chặng**: một cái Tết, từ 23 tháng Chạp tới Rằm | Ông Táo, Chợ Tết, Tất niên, Giao thừa, Mùng 1, 2, 3… |
+| Blind | **Bàn nhỏ / Bàn lớn / Bàn trùm** | |
+| Boss blind | **Trùm + "Luật nhà"** | Xem mục 5 |
+| Joker | **Quý nhân** | "Gặp quý nhân phù trợ" |
+| Planet (nâng cấp kiểu bài) | **Sao chiếu mệnh** | Thái Dương nâng Sảnh… La Hầu, Kế Đô là sao xấu nhưng có mặt lợi |
+| Tarot (sửa lá) | **Quẻ xăm** | Thượng quẻ / hạ quẻ |
+| Spectral | **Bùa** | Rủi ro cao |
+| Booster pack | **Bao lì xì** | Hoạt cảnh xé bao đỏ rất đã |
+| Voucher | **Chữ ông đồ** | Phúc, Lộc, Nhẫn… nâng cấp cho cả lượt chơi |
+| Foil / Holo / Poly | **Khảm xà cừ / Sơn mài / Men lam** | Xà cừ lấp lánh y như holo |
+| Stake (độ khó) | **Chiếu** | "Ngồi chiếu trên" |
+| Shop | **Chợ Tết** | Tiền là lì xì, lãi là "bỏ ống" |
+
+## 4. Quý nhân mẫu
+
+Chỉ số chưa cân, mục đích là để thấy chất:
+
+- **Thầy bói:** đầu ván lật 3 lá của đối thủ. *"Xem một quẻ, biết ba lá."*
+- **Cô hàng xóm:** luôn biết đối thủ còn mấy heo. *"Chuyện nhà ai cô cũng biết."*
+- **Chú xe ôm:** sảnh được nhảy cóc một bậc (4-5-7-8). *"Chú biết đường tắt."*
+- **Thằng bạn thân:** mỗi lần cậu bỏ lượt, cộng dồn +3 Thế cho lần ăn vòng kế tiếp. *"Nhịn tí, ăn cả vòng."*
+- **Heo đất:** mỗi lần dùng heo ăn vòng thì +1 Thế vĩnh viễn. Bị chặt heo thì vỡ. *"Nuôi lâu mới béo."*
+- **Mẹ giữ hộ:** mỗi bàn thắng, 2 lì xì được cất vào đây. Bán lá này thì nhận lại gấp đôi, nhưng có 1/4 khả năng *"tiền đó mẹ đóng học cho con rồi."*
+- **Dân chơi Chợ Lớn:** chặt heo thì Thế ×3.
+- **Con Mèo** (Việt Nam có Mèo thay Thỏ): một lá trong bộ 12 con giáp hiếm.
+
+Mấy kiểu build tự nhiên sẽ mọc ra: sảnh dài, bom/chặt, nuôi heo, đánh rác giữ nhịp, nhịn để phản đòn, ăn phạt cuối ván (thối/cóng), và săn tới trắng.
+
+## 5. "Luật nhà" làm boss
+
+Nhà nào ở Việt Nam cũng có luật Tiến Lên riêng, nên boss đến từ chính văn hoá thật:
+- **"Nhà này không cho chặt heo."**
+- **"Có đè là phải đè."** Không được giấu bài.
+- **"Không được tới bằng heo."**
+- **"Sảnh phải đồng chất."**
+- **Bà Nội:** "Bà già rồi, cho bà đi trước."
+- **Anh rể tương lai:** cố tình đánh dở để lấy lòng, nhưng cậu thắng đậm quá thì bị trừ điểm.
+
+## 6. Khám phá
+
+- **Bộ ẩn chỉ xuất hiện khi bộ bài bị biến đổi**, giống Five of a Kind của Balatro: *ngũ quý*, *sảnh vòng* K-A-2-3-4 (bình thường heo không vào sảnh được), *sảnh rồng đồng chất*.
+- **Tới trắng** (sảnh rồng, 6 đôi, tứ quý heo) thì qua bàn ngay và có màn ăn mừng hoành tráng. Cố tình build để tới trắng là một kiểu chơi mạo hiểm riêng.
+- **Sự kiện giữa các bàn:** lắc bầu cua kiếm lì xì, xin xăm ở chùa, xin chữ ông đồ.
+- **Chế độ mở khoá về sau:** Sâm lốc (miền Bắc), Mậu binh, Tá lả, bài chòi. Cái này nên để sau khi đã ra mắt, đừng ôm vào bản đầu.
+
+## 7. Ngôn từ: làm sao cho khỏi cringe
+
+- **Ngắn và khô như Balatro.** Chữ nổ trên màn chỉ một hai từ: **"Chặt!"**, **"Ăn trọn vòng."**, **"Thối hai heo."**, **"Cóng."** Phần cảm xúc để hiệu ứng lo.
+- Câu mô tả thì **dí dỏm kiểu người lớn**: nói tỉnh, xoay tục ngữ, giọng ông chú bàn nhậu, chứ không phải giọng TikTok.
+- **Không dùng:** teencode, meme đang hot (nửa năm sau là lỗi thời), emoji, "xịn xò", "đỉnh nóc kịch trần".
+- **Dùng thuật ngữ Tiến Lên chuẩn và thống nhất.** Lập bảng từ khoá ngay từ đầu, mỗi khái niệm chỉ một tên gọi.
+
+## 8. Đồ hoạ
+
+Cái "chất Balatro" khoảng 80% nằm ở **hiệu ứng chuyển động** chứ không phải nét vẽ. Gồm:
+- Pixel art độ phân giải thấp rồi phóng to.
+- Shader CRT, bloom nhẹ.
+- Nền là shader xoáy màu, đổi màu theo trạng thái.
+- Lá bài nghiêng theo chuột và lắc lư nhẹ khi đứng yên.
+- Rung màn hình, số điểm bật lên, easing mượt.
+
+Học cái cảm giác đó, nhưng **đừng chép y nguyên**, không thì bị gọi là hàng nhái. Bản sắc riêng có thể lấy từ:
+- **J, Q, K** vẽ theo kiểu **tranh Đông Hồ**. Màu phẳng, viền đậm, nên chuyển sang pixel art rất hợp.
+- **Mặt sau lá bài** dùng hoa văn **trống đồng**.
+- **Bảng màu sơn mài:** đen son, đỏ son, vàng kim, nâu cánh gián. Nền xoáy như mực hoặc sơn mài đang chảy.
+- **Cảnh báo kỹ thuật:** nhiều font pixel không có đủ dấu tiếng Việt (ơ, ư, ặ, ễ… chồng dấu). Phải chọn hoặc tự vẽ font có đủ dấu và chừa chiều cao dòng. Việc này nên làm sớm.
+
+## 9. Âm thanh
+
+- Học cách Balatro dùng một bài nhạc nền chính, rồi có các biến thể cùng nhịp cho cửa hàng và boss, chuyển qua lại mượt. Bên mình có thể là nền lo-fi với giai điệu **đàn tranh / đàn bầu / sáo trúc**.
+- **Chuỗi tính điểm:** tiếng **phách, mõ** cao dần lên. Đàn bầu luyến cao độ rất hợp với kiểu tiếng điểm càng lúc càng cao của Balatro.
+- **Chặt heo:** pháo nổ cộng chiêng. **Về nhất:** trống. **Xào bài:** thu tiếng bài thật.
+
+## 10. Bắt đầu thế nào
+
+1. **Tối nay:** lấy bộ bài thật với giấy bút, chơi thử luật "ăn vòng". Rủi ro lớn nhất nằm ở cơ chế lõi, mà thử cái này thì không tốn đồng nào.
+2. **Bản thử trên máy, chưa có art:** 1 bàn, AI đơn giản, 5 quý nhân. Tiêu chí: chơi 20 ván xong có còn muốn chơi tiếp không.
+3. **Vertical slice:** làm trọn 1 chặng, đủ art, hiệu ứng và âm thanh.
+4. Sau đó mới mở rộng nội dung.
+
+**Công cụ:**
+- **Godot 4:** miễn phí, làm 2D và shader tốt, xuất được PC, mobile, web. Tớ nghĩ hợp nhất nếu cậu làm một mình.
+- **LÖVE (Lua):** chính là cái Balatro dùng. Nhẹ, nhưng cái gì cũng phải tự dựng.
+
+**Rủi ro cần để ý:**
+- Một ván 1v1 đủ 13 lá có thể hơi dài. Thử bản 10 lá xem sao.
+- AI phải đủ khôn mà không ăn gian.
+- Phát hành chính thức ở Việt Nam thì game có yếu tố đánh bài dính quy định cấp phép riêng, gần lúc ra mắt nên tìm hiểu kỹ. Steam quốc tế đơn giản hơn. Dù thế nào cũng **tuyệt đối không có nạp tiền đổi thưởng**.
+
+**Vài cái tên:** *Chặt Heo*, *Tới Trắng*, *Ba Bích*.
+
+---
+
+Tớ có thể làm luôn một **bản chơi thử trên web**: luật Tiến Lên 1v1, cơ chế ăn vòng, vài quý nhân và luật nhà. Cậu chơi thử xem cơ chế lõi có thật sự gây nghiện không trước khi bỏ công làm art. Hoặc tớ gom hết những ý trên thành tài liệu thiết kế (GDD) để cậu giữ và sửa dần. Cậu muốn cái nào trước?

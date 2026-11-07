@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chiếu Trên · Khí quyển (nền + âm thanh)</title>
+<script>
+/* In-app browsers (Zalo, Facebook) call bridges that do not exist on a plain page; stub them so their injected code stays quiet. */
+(function () { var n = function () {}; try {
+  if (!window.zaloJSV2) window.zaloJSV2 = { zalo_h5_event_handler: n, getCookieFallback: function () { return ''; } };
+  if (!window.ZaloJavaScriptInterface) window.ZaloJavaScriptInterface = { postMessage: n };
+} catch (e) {} })();
+/* ?nogl forces the no-WebGL fallback so it can be looked at */
+if (/[?&]nogl\b/.test(location.search)) {
+  var _gc = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (t) { return /webgl/.test(t) ? null : _gc.apply(this, arguments); };
+}
+</script>
+<style>
+:root {
+  --den: #1B1412; --nau: #4A2418; --do: #A3271F; --vang: #D9A441; --lam: #2E5E8C; --giay: #EADCC0;
+  --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--den); color: var(--giay); font-family: var(--font); }
+#bg { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.panel {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(10px + var(--sab));
+  width: min(calc(100% - 20px - var(--sal) - var(--sar)), 760px);
+  background: var(--den); border: 2px solid var(--nau); box-shadow: 4px 4px 0 #0a0706;
+  padding: 8px 10px 10px;
+}
+.row-label { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin: 2px 0 0; font-size: 12px; line-height: 1.5; letter-spacing: .04em; text-transform: uppercase; color: var(--vang); }
+.row-label span:last-child { color: var(--giay); opacity: .75; text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.grid { display: grid; gap: 5px; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+button {
+  font: inherit; color: var(--den); background: var(--giay); border: 2px solid var(--den);
+  min-height: 44px; padding: 3px 4px 5px; line-height: 1.25; cursor: pointer; touch-action: manipulation;
+  box-shadow: 0 3px 0 var(--nau); transform: translateY(0); position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  font-size: 13px; font-weight: 600;
+}
+button small { font-size: 11px; font-weight: 400; opacity: .7; line-height: 1.2; font-family: ui-monospace, Consolas, monospace; }
+button:hover { background: #f4e9d2; }
+button:active { transform: translateY(3px); box-shadow: 0 0 0 var(--nau); }
+button:focus-visible { outline: 3px solid var(--vang); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--vang); }
+button.on-red { background: var(--do); color: var(--giay); }
+button.on-red:hover { background: #b6302a; }
+.grid + .row-label { margin-top: 6px; }
+#bg-info { white-space: nowrap; }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<main class="panel" id="panel">
+  <div class="row-label"><span>Nền · Mood</span><span id="info">…</span></div>
+  <div class="grid" id="moods">
+    <button data-mood="ban" aria-pressed="true">Bàn<small>ban</small></button>
+    <button data-mood="boss" aria-pressed="false">Bàn trùm<small>boss</small></button>
+    <button data-mood="shop" aria-pressed="false">Chợ Tết<small>shop</small></button>
+    <button data-mood="title" aria-pressed="false">Tiêu đề<small>title</small></button>
+    <button id="scan" aria-pressed="false">Scanlines<small>crt(on)</small></button>
+    <button id="pulse">Xung nền<small>pulse(1)</small></button>
+    <button id="mute" aria-pressed="false">Âm thanh<small>bật</small></button>
+  </div>
+  <div class="row-label"><span>Âm thanh · Cue</span><span id="state">chạm một nút để mở âm</span></div>
+  <div class="grid" id="cues"></div>
+</main>
+
+<script src="../js/config.js"></script>
+<script src="../js/bg.js"></script>
+<script src="../js/audio.js"></script>
+<script>
+(function () {
+  'use strict';
+  var TL = globalThis.TL, $ = function (s) { return document.querySelector(s); };
+  var canvas = $('#bg');
+  TL.BG.init(canvas);
+  TL.BG.setMood('ban');
+
+  // per-cue label (vi) in the order of SPEC §11
+  var CUES = [['deal', 'Chia bài'], ['flip', 'Lật bài'], ['select', 'Chọn bài'], ['place', 'Đánh bài'], ['tick', 'Tick (mõ)'],
+    ['mult', 'Nhân Thế'], ['chat', 'Chặt!'], ['vong', 'Thắng vòng'], ['venhat', 'Về nhất'], ['thua', 'Thua ván'],
+    ['stamp', 'Đóng dấu'], ['button', 'Nút bấm'], ['hover', 'Rê chuột'], ['coin', 'Lì xì'], ['buy', 'Mua'],
+    ['sell', 'Bán'], ['dissolve', 'Tan biến'], ['gong', 'Chiêng'], ['shuffle', 'Xào bài']];
+  var cues = $('#cues');
+  CUES.forEach(function (c) {
+    var b = document.createElement('button');
+    b.dataset.cue = c[0]; b.innerHTML = c[1] + '<small>' + c[0] + '</small>';
+    cues.appendChild(b);
+  });
+  var chain = document.createElement('button');
+  chain.id = 'chain'; chain.className = 'on-red'; chain.innerHTML = 'Chuỗi 8 tick<small>tick ×8</small>';
+  cues.appendChild(chain);
+
+  function play(name, o, retry) {
+    TL.Audio.unlock();
+    var r = TL.Audio.play(name, o);
+    if (!r && !TL.Audio.muted && !retry) setTimeout(function () { play(name, o, true); }, 90);   // first tap: context is still resuming
+  }
+
+  var M = TL.CFG.MOTION.play;
+  chain.addEventListener('click', function () {
+    var step = 0.2;
+    for (var i = 0; i < 8; i++) (function (n) {
+      setTimeout(function () { play('tick', { pitch: M.tickPitch * Math.pow(1 + M.tickStep, n) }); }, n * step * 1000);
+    })(i);
+  });
+  cues.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-cue]'); if (b) play(b.dataset.cue);
+  });
+
+  $('#moods').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-mood]');
+    if (!b) return;
+    TL.BG.setMood(b.dataset.mood);
+    document.querySelectorAll('[data-mood]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    play('button');
+  });
+  var scan = $('#scan'), scanOn = false;
+  scan.addEventListener('click', function () {
+    scanOn = !scanOn; TL.BG.crt(scanOn); scan.setAttribute('aria-pressed', scanOn ? 'true' : 'false'); play('button');
+  });
+  $('#pulse').addEventListener('click', function () { TL.BG.pulse(1); play('button'); });
+  var mute = $('#mute');
+  mute.addEventListener('click', function () {
+    TL.Audio.unlock();
+    var m = !TL.Audio.muted; TL.Audio.setMuted(m);
+    mute.setAttribute('aria-pressed', m ? 'true' : 'false'); mute.querySelector('small').textContent = m ? 'tắt' : 'bật';
+    if (!m) play('button');
+  });
+
+  var info = $('#info'), state = $('#state'), t0 = performance.now(), lastInfo = 0;
+  function frame(now) {
+    TL.BG.render((now - t0) / 1000);
+    if (now - lastInfo > 500) {
+      lastInfo = now;
+      info.textContent = 'nền ' + canvas.width + '×' + canvas.height + ' px';
+      state.textContent = TL.Audio.muted ? 'đã tắt tiếng' : 'sẵn sàng';
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
