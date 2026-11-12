@@ -1,8 +1,8 @@
-**Chiếu Trên** — Tiến Lên Miền Nam 1v1 vs AI inside a Balatro-style roguelike run, Tết theme. SPEC wins over code. Units: px = CSS px, time = s, angles = deg. Terms (one name each): **ván** one deal · **vòng** plays until a pass · **bàn** one target table · **chặng** group of 3 bàn · **Điểm bàn** score banked on the bàn · **chặt** a cross-type or heo-killing beat · **lì xì** money.
+**Chiếu Trên** — Tiến Lên Miền Nam 1v1 vs AI inside a Balatro-style roguelike run, Tết theme. SPEC wins over code. Units: px = CSS px, time = s, angles = deg. Terms (one name each): **ván** one deal · **vòng** plays until a pass (player-facing: **Hũ**) · **bàn** one target table · **chặng** group of 3 bàn · **Điểm bàn** (player-facing: **Tổng điểm**) score banked on the bàn · **chặt** a cross-type or heo-killing beat · **lì xì** money.
 
 ## 1 Scope
 In: full run of 3 chặng × 3 bàn; 1v1 Tiến Lên; ăn vòng scoring; 8 Quý nhân; 6 Sao chiếu mệnh; 3 luật nhà bosses; Chợ Tết shop; save/continue; settings.
-Out (do not build): đổi bài, quẻ xăm, bùa, chữ ông đồ, card editions, 3-player tables, skipping tables, events between tables, music.
+Added after v1 (see §12): 20 Quý nhân, 6 Quẻ, Bao lì xì, 6 luật nhà, endless mode, Sổ tay (collection). Out (do not build): bùa, chữ ông đồ, card editions, 3-player tables, skipping tables, events between tables, music.
 
 ## 2 Files
 Path (purpose) · owner job. Only the owner edits a file; BALANCE may change number values in config.js only.
@@ -129,3 +129,17 @@ Realistic, no music, no chiptune; synthesised with WebAudio (noise, filters, res
 10. Settings persist; reduced motion removes shake, sway, tilt; speed 3× is not broken.
 11. Visuals follow §9 (six colours, flat, no glow); all Vietnamese text renders with correct diacritics.
 12. A full `?auto&seed=N` run ends with `Game.autoResult` set and zero console errors.
+
+## 12 Glossary (player-facing text; code keys unchanged: the, diemBan, vong, pot, xThe, sao)
+| Code / old name | Player sees | Notes |
+|---|---|---|
+| the, Thế | **Nhân** | "Điểm × Nhân"; popups "+3 Nhân", "×2 Nhân" |
+| vòng, ống vòng (pot) | **Hũ** | "Ăn trọn vòng." → "Ăn hũ." |
+| Điểm bàn | **Tổng điểm** | |
+| Bỏ ống (interest) | **Lãi** | |
+| Sao chiếu mệnh | **Sao** | "nâng cấp một kiểu bài" |
+| Quẻ | **Quẻ** | one-use item, 2 slots, bought in Chợ Tết, used at the table |
+| Bao lì xì | **Bao lì xì** | shop item: open, pick 1 of 3 random Quý nhân or Quẻ |
+Kept as real terms: heo, chặt, đè, đôi, sám, sảnh, đôi thông, tứ quý, rác, thối heo, cóng, tới trắng, bỏ lượt, Lì xì, Quý nhân, Chợ Tết, Bàn nhỏ/lớn/trùm, Luật nhà.
+Style: effect first, plain, with its number ("Đôi: +3 Nhân."). Flavour quote optional, at most 6 words, only when clearly funny. Tutorial lines: instructions of 14 words or fewer saying what to do and why. No invented folk phrasing.
+Content lives in js/content.js (extends TL.DATA and TL.CFG: QN2, QUE, HOUSE2, RARITY_W). Rarity: thường (plain), hiếm (men lam), quý (vàng kim).
