@@ -3,6 +3,8 @@
  *   enter: uses Game.run (creates one from ?seed if absent). phase 'ban' -> bàn intro -> deal -> turns -> ván end -> next ván | payout.
  *   payout is drawn here (lines count in); then setScreen('shop', {paid:true}) if Screens.shop exists, else the next bàn.
  *   lost / won -> setScreen('end', {result, run}) if Screens.end exists, else a fresh run. ?auto: AI plays seat 0, sets Game.autoResult.
+ * Quẻ: two slots on the table's left edge (tap = description + Dùng; Run.useQue; Đổi bài flies cards out/in, Soi bài flips the opponent fan until the hũ is taken, Gấp đôi shows ×2 on the Nhân box, Thêm ván juices the ván counter).
+ * First Chặt / Thối heo / Cóng / Tới trắng each show a one-line Tutorial bubble once ever. Flags: ?auto (+ &endless: start already won, play chặng 4, stop).
  * All logic is computed first (Rules/Scoring/Run); the result is played back through FX.queue; input is locked while it is busy.
  */
 (function (TL) {
@@ -14,14 +16,19 @@
   const key = c => c.cards.join(','), ctr = b => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 }), top = b => ({ x: b.x + b.w / 2, y: b.y }), fmt = TL.fmt;
   const TU = () => (TL.Tutorial && TL.Tutorial.on() ? TL.Tutorial : null);                       // the running lesson, if any
   const gateOK = (p, t) => !TL.Tutorial || TL.Tutorial.gate(p, t), tnote = (ev, d) => { const t = TU(); if (t) t.notify(ev, d); };
-  const J = { diem: {}, the: {}, pot: {}, diemBan: {}, lixi: {} };   // juice holders read by the HUD (numbers swell instead of covering popups)
+  const J = { diem: {}, the: {}, pot: {}, diemBan: {}, lixi: {}, van: {} };   // juice holders read by the HUD (numbers swell instead of covering popups)
 
   let run, info, st, r, lk = '', hs = 1, ts = 1, os = 1, vm, cv, shownDB, hand, opp, qnS, groups, ghost, vongPlays, ready, leg, hintList, hintIdx, sortMode, selOk, selMsg, tmsg, tmsgTok = 0;
   let pay, tipHover, tipPin, downBtn, hovBtn, dead;
+  let queS = [null, null], qr = [], qtip = null, qbtn = null, qdown = false, swapFly = [], soiOn = false;   // Quẻ: sprites, slot rects, pinned slot, Dùng button rect
 
   // ------------------------------------------------------------ helpers
   function mk(tex, scale, id) { const s = SP.create({ tex: tex, x: 0, y: 0, scale: scale }); s.id = id; return s; }
   function say(m, sec) { tmsg = m; const t = ++tmsgTok; FX.after(sec || 2, () => { if (tmsgTok === t) { tmsg = null; refresh(); } }); refresh(); }
+  function first(k) {   // one-line bubble the first time a rule comes up, ever (Tutorial keeps the flag); the queue waits for the tap
+    if (Game().flags.auto || !TL.Tutorial) return;
+    FX.queue.add(() => { TL.Tutorial.onFirst(k); return 0; }, 0.15); FX.queue.wait(() => !TL.Tutorial.on());
+  }
   const selIds = () => hand.filter(s => s.selected).map(s => s.id).sort((a, b) => a - b);
   const dbPt = () => ctr(r.dbBox);
   const stampAt = (str, kind) => { const c = ctr(r.table); FX.stamp(str, kind, c.x, c.y); };
@@ -29,8 +36,8 @@
   const canAct = () => ready && !dead && !pay && st && !st.over && !FX.queue.busy() && !Game().flags.auto && vm.turn === 0 && !Game().overlay;
 
   function buildVm() {
-    const ch = D.CHANG[run.chang], hr = info.house ? D.HOUSE_RULES[info.house] : null;
-    vm = { chang: { idx: run.chang, name: ch.name }, ban: { idx: run.ban, kind: info.kind, name: info.name }, target: info.target, diemBan: 0, pot: 0, combo: null, diem: 0, the: 0,
+    const hr = info.house ? D.HOUSE_RULES[info.house] : null;
+    vm = { chang: { idx: run.chang, name: info.changName }, x2: !!run.flags.x2Next, ban: { idx: run.ban, kind: info.kind, name: info.name }, target: info.target, diemBan: 0, pot: 0, combo: null, diem: 0, the: 0,
       vanLeft: info.vanLeft, vanMax: info.vanMax, lixi: run.money, oppId: info.opp, oppName: info.name, house: hr ? { name: hr.name, quote: hr.quote, short: hr.short } : null,
       oppCount: 0, oppHeo: null, oppReveal: [], deckLeft: 52, qn: [], turn: 0, live: false, vanNo: info.vanUsed + 1, j: J, canPlay: false, canPass: false, busy: true, sortMode: sortMode, msg: null, flames: false };
   }
@@ -41,7 +48,7 @@
     vm.oppHeo = S.slotOf(run, 'co_hang_xom') >= 0 ? opp.filter(s => C.isHeo(s.id)).length : null;
     vm.oppReveal = st ? (st.peek || []).filter(id => opp.some(s => s.id === id)) : [];
     vm.busy = !!FX.queue.busy() || !ready || !!pay || !st || st.over; vm.canPlay = selOk && canAct(); vm.canPass = !!(leg && leg.canPass) && canAct();
-    vm.msg = tmsg || selMsg; vm.hoverBtn = hovBtn; vm.downBtn = downBtn;
+    vm.x2 = !!run.flags.x2Next; vm.msg = tmsg || selMsg; vm.hoverBtn = hovBtn; vm.downBtn = downBtn;
   }
   function clearScore() { cv.diem = cv.the = 0; vm.combo = null; }
 
@@ -54,12 +61,21 @@
     hand.forEach(s => { s.scale = hs; }); opp.forEach(s => { s.scale = os; });
     groups.forEach(g => g.list.forEach(s => { s.scale = ts; }));
     qnS.forEach((s, i) => { if (s) placeQn(s, i); });
+    queLayout(); queS.forEach((s, i) => { if (s) placeQue(s, i); });
     fanHand(0); fanOpp(0); groups.forEach(g => SP.fan(g.list, tableRect(g.k), { overlap: 0.35, curve: 0 }));
   }
   function placeQn(s, i) { const b = r.qnSlot[i]; s.scale = TL.HUD.scaleFor(b.h, Game().dpr); s.sway = false; const c = ctr(b); s.T.x = s.V.x = c.x; s.T.y = s.V.y = c.y; s._sp.x.x = c.x; s._sp.y.x = c.y; }
   const fanHand = dur => SP.fan(hand, r.hand, { dur: dur });
   const fanOpp = dur => SP.fan(opp, r.oppHand, { overlap: 0.5, curve: 0.6, dur: dur });
   function tableRect(k) { const p = r.tablePlay, dx = ((k % 3) - 1) * p.w * 0.05, dy = (k % 2 ? 1 : -1) * p.h * 0.04; return { x: p.x + dx, y: p.y + dy, w: p.w, h: p.h }; }
+  // Quẻ rail: two slots on the left edge of the table (stacked when the table is tall enough, else side by side), under the played cards
+  function queLayout() {
+    const t = r.table, dpr = Game().dpr || 1, g = 6, sc = Math.max(1, TL.HUD.scaleFor(r.qnSlot[0].h * 0.8, dpr)), w = Math.round(48 * sc / dpr) + 8, h = Math.round(64 * sc / dpr) + 8;
+    const y0 = t.y + (r.mode === 'landscape' ? 46 : 6), stack = t.h - (y0 - t.y) >= 2 * h + g + 6;
+    qr = [0, 1].map(i => stack ? { x: t.x + 6, y: y0 + i * (h + g), w: w, h: h } : { x: t.x + 6 + i * (w + g), y: y0, w: w, h: h });
+  }
+  function placeQue(s, i) { const b = qr[i], c = ctr(b); s.scale = Math.max(1, Math.floor((b.h - 8) * (Game().dpr || 1) / 64 + 1e-6)); s.sway = false; s.T.x = s.V.x = c.x; s.T.y = s.V.y = c.y; s._sp.x.x = c.x; s._sp.y.x = c.y; }
+  function buildQue() { queS = run.que.map((q, i) => { if (!q) return null; const s = mk(A.que(q), 1, q); placeQue(s, i); return s; }); qtip = null; }
   function buildQn() {
     qnS = run.qn.map((q, i) => { if (!q) return null; const s = mk(A.quyNhan(q.id), 1, q.id); placeQn(s, i); return s; });
   }
@@ -68,16 +84,17 @@
   function enter() {
     const G = Game();
     if (!G.run) G.run = TL.Run.create(G.flags.seed != null ? G.flags.seed : undefined);
+    if (G.flags.auto && G.flags.endless && !G.run.endless) { const x = G.run; x.chang = 2; x.ban = 2; x.phase = 'won'; TL.Run.continueEndless(x); }
     run = G.run; if (TL.Tutorial) TL.Tutorial.attach(run); dead = false; pay = null; sortMode = 'rank'; ghost = {}; tmsg = selMsg = null; tipHover = tipPin = null; downBtn = hovBtn = null; lk = '';
     hand = []; opp = []; qnS = []; groups = []; st = null; ready = false; leg = null; selOk = false; vongPlays = 0;
-    cv = { pot: 0, diemBan: 0, diem: 0, the: 0, lixi: run.money, juiceTargets: J }; shownDB = 0; info = TL.Run.ban(run); buildVm(); FX.reset(); relayout(); buildQn();
+    cv = { pot: 0, diemBan: 0, diem: 0, the: 0, lixi: run.money, juiceTargets: J }; shownDB = 0; info = TL.Run.ban(run); buildVm(); FX.reset(); relayout(); buildQn(); buildQue(); swapFly = []; soiOn = false;
     if (run.phase === 'payout') return showPay();
     if (run.phase === 'shop') return leave();
     if (run.phase === 'won' || run.phase === 'lost') return toEnd(run.phase);
     startBan();
   }
   function startBan() {
-    info = TL.Run.ban(run); cv.lixi = run.money; cv.diemBan = shownDB = run.diemBan; buildVm(); buildQn(); sweepAll(true); st = null; ready = false;
+    info = TL.Run.ban(run); cv.lixi = run.money; cv.diemBan = shownDB = run.diemBan; buildVm(); buildQn(); buildQue(); sweepAll(true); st = null; ready = false; soiOn = false;
     if (TL.BG) TL.BG.setMood(info.kind === 'trum' ? 'boss' : 'ban');
     if (!Game().flags.auto) saveRun();
     if (run.vanUsed === 0) {
@@ -139,9 +156,9 @@
     const ids = hand ? selIds() : []; selOk = false; selMsg = null; tnote('sel', ids);
     if (!ready || !leg) return;
     if (!ids.length) { clearScore(); return; }
-    const c = C.detect(ids);
-    if (!c) selMsg = T.msg.illegal;
-    else if (!leg.plays.some(p => key(p) === key(c))) selMsg = st.table && st.mods.noChat && C.beats(c, st.table.combo, {}) === 'chat' ? T.msg.noChat : T.msg.cantBeat;
+    const c = C.detect(ids, st.mods);
+    if (!c) selMsg = st.mods.sameSuitStraight && C.detect(ids) ? T.msg.sameSuit : T.msg.illegal;
+    else if (!leg.plays.some(p => key(p) === key(c))) selMsg = st.table && st.mods.noChat && C.beats(c, st.table.combo, {}) === 'chat' ? T.msg.noChat : st.mods.noHeoFinish && C.finishesWithHeo(c, st.hands[0]) ? T.msg.noHeoFinish : T.msg.cantBeat;
     else { const p = S.preview(run, c); selOk = true; vm.combo = { name: D.COMBO_NAME[c.type], level: p.level }; cv.diem = p.diem; cv.the = p.the; }
     if (!selOk) clearScore();
   }
@@ -150,7 +167,7 @@
   function playEv(e, steps) {
     const Q = FX.queue, P = { sp: {}, target: null, a: { diem: 0, the: 0 } };
     if (e.type === 'deal') Q.add(() => doDeal(e, steps), 0);
-    else if (e.type === 'toiTrang') Q.add(() => { stampAt(T.stamp.toiTrang, 'gold'); snd('gong'); return K.endHold; }, 0.1);
+    else if (e.type === 'toiTrang') { Q.add(() => { stampAt(T.stamp.toiTrang, 'gold'); snd('gong'); return K.endHold; }, 0.1); first('toiTrang'); }
     else if (e.type === 'turn') Q.add(() => {
       vm.turn = e.seat; clearScore(); hintList = null; tmsg = null;
       if (e.seat === 1 || Game().flags.auto) schedule(e.seat);
@@ -164,7 +181,7 @@
       Q.add(() => { tnote('scoreDone', { seat: e.seat, type: 'play' }); return 0; }, 0); Q.wait(() => gateOK('afterScore', 'play'));
     } else if (e.type === 'chat') Q.add(() => {
       FX.counter(cv, 'pot', e.pot, M.counter.dur); FX.popup('×' + e.xPot, top(r.pot).x, top(r.pot).y, 'xthe', { center: true }); FX.shake(FX.shakeFor(e.pot)); snd('mult', { pitch: 1.3 }); return 0.5;
-    }, 0.1), Q.add(() => { tnote('scoreDone', { seat: e.seat, type: 'chat' }); return 0; }, 0), Q.wait(() => gateOK('afterScore', 'chat'));
+    }, 0.1), Q.add(() => { tnote('scoreDone', { seat: e.seat, type: 'chat' }); return 0; }, 0), Q.wait(() => gateOK('afterScore', 'chat')), first('chat');
     else if (e.type === 'pass') Q.add(() => {
       const p = e.seat === 0 ? top(r.hand) : top(r.oppHand); FX.popup(T.stamp.boLuot, p.x, p.y, 'gold'); snd('button'); steps.forEach(qnFx); return 0.4;
     }, 0);
@@ -229,6 +246,7 @@
     groups.forEach(g => g.list.forEach((s, i) => { all.push(s); s.moveTo(dest.x, dest.y, 0.4, (i - 1) * 6, i * 0.03); }));
     FX.after(K.sweep, () => { all.forEach(s => { s.dead = true; }); });
     if (w === 0) FX.popup('+' + fmt(e.pot), dest.x, dest.y, 'gold', { center: true }); else FX.popup(fmt(e.pot), top(r.oppHand).x, top(r.oppHand).y, 'bad'); snd('vong'); steps.forEach(s => { qnFx(s); });
+    if (soiOn) { soiOn = false; opp.forEach(sp => { if (st.peek.indexOf(sp.id) < 0) sp.flip(A.back(), 0); }); }
     FX.counter(cv, 'pot', 0, M.counter.dur); if (w === 0) { shownDB += e.pot; FX.counter(cv, 'diemBan', shownDB, M.counter.dur * 1.5); snd('coin'); }
     vongPlays = 0; return K.vongHold;
   }
@@ -244,6 +262,7 @@
       FX.counter(cv, 'diem', a.diem, M.counter.dur * 0.6); FX.counter(cv, 'the', a.the, M.counter.dur * 0.6); snd(s.xThe ? 'mult' : 'tick', { pitch: FX.tickPitch(i) });
       return 0.5;
     }, K.gap * 3));
+    if (e.cong) first('cong'); if (e.heo[win ? 1 : 0] > 0) first('thoi');
     Q.add(() => {
       shownDB = run.diemBan; const p = ctr(r.dbBox); FX.popup((b.total >= 0 ? '+' : '') + fmt(b.total), p.x, p.y, b.total >= 0 ? 'gold' : 'bad', { center: true });
       FX.counter(cv, 'diemBan', shownDB, M.counter.dur * 1.5); FX.shake(FX.shakeFor(Math.abs(b.total))); snd(b.total >= 0 ? 'coin' : 'thua', { vol: 0.7 }); vm.vanLeft = TL.Run.ban(run).vanLeft; return K.endHold;
@@ -281,7 +300,7 @@
       if (TL.Screens && TL.Screens.shop) return G.setScreen('shop', { paid: true, run: run });
       TL.Run.nextBan(run); startBan(); return;
     }
-    if (TL.Run.nextBan(run) === 'won') toEnd('won'); else startBan();
+    if (TL.Run.nextBan(run) === 'won' || (Game().flags.auto && Game().flags.endless && run.chang >= 4)) toEnd('won'); else startBan();
   }
   function toEnd(result) {
     const G = Game(); dead = true; try { localStorage.removeItem(CFG.STORAGE.save); } catch (e) {}
@@ -299,8 +318,12 @@
     if (!r) return;
     const inB = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
     if (pay) { if (e.type === 'down' && pay.done && inB(payBtn(), e.x, e.y)) leave(); return; }
+    if (e.type === 'down' && qtip != null && qbtn && e.x >= qbtn.x && e.x <= qbtn.x + qbtn.w && e.y >= qbtn.y && e.y <= qbtn.y + qbtn.h) { qdown = true; snd('button'); return; }
+    if (e.type === 'up' && qdown) { qdown = false; if (qtip != null && qbtn && e.x >= qbtn.x && e.x <= qbtn.x + qbtn.w && e.y >= qbtn.y && e.y <= qbtn.y + qbtn.h) useQueUI(qtip); return; }
     if (e.type === 'move') { tipHover = slotAt(e.x, e.y); const id = TL.HUD.hit(r, e.x, e.y); hovBtn = id; SP.hover(hand, canAct() ? e.x : null, e.y); return; }
     if (e.type === 'down') {
+      const qi = queAt(e.x, e.y); if (qi != null) { qtip = qtip === qi ? null : qi; tipPin = null; snd('select'); return; }
+      if (qtip != null) { const q = qtipRect(); if (q && e.x >= q.x && e.x <= q.x + q.w && e.y >= q.y && e.y <= q.y + q.h) return; qtip = null; }
       const sl = slotAt(e.x, e.y); tipPin = sl != null && tipPin !== sl ? sl : null; if (sl != null) { tipHover = sl; return; }
       const id = TL.HUD.hit(r, e.x, e.y); if (id) { downBtn = id; snd('button'); return; }
       if (!canAct()) return; const s = SP.pick(hand, e.x, e.y);
@@ -322,6 +345,64 @@
     str.split(' ').forEach(wd => { const t = line ? line + ' ' + wd : wd; if (line && A.textWidth(t, size) > w) { out.push(line); line = wd; } else line = t; });
     if (line) out.push(line); return out;
   }
+
+  // ------------------------------------------------------------ Quẻ (one-use items, 2 slots)
+  const queAt = (x, y) => { for (let i = 0; i < 2; i++) { const b = qr[i]; if (b && run.que[i] && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return i; } return null; };
+  function queWhy(i) {   // one short line saying why this Quẻ cannot be used now, or null
+    const id = run.que[i], M = T.msg; if (!id) return null;
+    if (pay || dead || Game().overlay) return M.queBusy;
+    if (id === 'que_loc' || id === 'que_sao') return FX.queue.busy() ? M.queBusy : null;
+    if (!st || st.over) return M.queVan;
+    if (vm.turn !== 0) return M.queTurn;
+    if (!canAct()) return M.queBusy;
+    if (id === 'que_doi') { const n = selIds().length; if (!n || n > CFG.QUE.DOI_MAX) return M.queSel; }
+    if (id === 'que_soi' && st.reveal[0]) return M.queSoi;
+    if (id === 'que_gap_doi' && run.flags.x2Next) return M.queX2;
+    return null;
+  }
+  function useQueUI(i) {
+    const id = run.que[i], w = queWhy(i);
+    if (w) { say(w); snd('button'); return; }
+    const sel = selIds(), res = TL.Run.useQue(run, st && !st.over ? st : null, i, sel);
+    if (!res.ok) { say(res.msg); snd('button'); return; }
+    const e = res.events[0], sp = queS[i], b = qr[i], c = ctr(b); queS[i] = null; qtip = null;
+    if (sp) { swapFly.push(sp); sp.dissolve(M.dissolve.dur, () => {}); }
+    snd('stamp', { vol: 0.8 });
+    if (e.type === 'swap') doSwap(e);
+    else if (id === 'que_soi') { soiOn = true; opp.forEach((s, k) => s.flip(A.card(s.id), k * 0.04)); snd('mult'); FX.popup(T.que.soi || T.hud.que, c.x, b.y, 'gold', { center: true }); }
+    else if (id === 'que_gap_doi') { snd('mult', { pitch: 1.2 }); const t = top(r.theBox); FX.popup(T.hud.x2 + ' ' + T.hud.the, t.x, t.y, 'xthe', { center: true }); refresh(); }
+    else if (id === 'que_them_van') { info = TL.Run.ban(run); vm.vanLeft = info.vanLeft; vm.vanMax = info.vanMax; FX.juice(J.van, 1.4); snd('coin'); FX.popup(T.que.gotVan, c.x, b.y, 'gold', { center: true }); }
+    else if (id === 'que_loc') { FX.counter(cv, 'lixi', run.money, 0.5); snd('coin'); FX.popup(T.que.gotLixi.replace('%d', e.lixi), c.x, b.y, 'gold', { center: true }); }
+    else if (id === 'que_sao') { snd('mult'); stampAt(T.que.gotSao.replace('%s', D.COMBO_NAME[e.sao]), 'gold'); refresh(); }
+    saveRun();
+  }
+  function doSwap(e) {
+    const d = ctr(r.deck);
+    e.out.forEach((id, k) => { const i = hand.findIndex(s => s.id === id); if (i < 0) return; const s = hand.splice(i, 1)[0]; s.selected = false; s.hover = false; swapFly.push(s); s.moveTo(d.x, d.y, 0.35, 0, k * 0.05); FX.after(0.45 + k * 0.05, () => { s.dead = true; }); });
+    const add = e.in.map(id => mk(A.back(), hs, id)); hand = hand.concat(add);
+    const order = C.sortHand(hand.map(s => s.id), sortMode); hand.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    fanHand(0); add.forEach((s, k) => s.deal(d, 0.3 + k * 0.1, A.card(s.id))); snd('deal');
+    leg = RU.legal(st, 0); hintList = null; refresh(); say(T.que.swapped, 1.5);
+  }
+  function drawQue(ctx) {
+    qr.forEach((b, i) => { A.slot(ctx, b, { radius: 4 }); });
+    SP.drawAll(ctx, queS.filter(Boolean));
+  }
+  function qtipRect() {
+    const i = qtip; if (i == null || !run.que[i]) return null;
+    const G = Game(), w = Math.min(K.tipW + 20, G.w - 16), sz = K.tipSize, d = D.QUE[run.que[i]], lh = sz + 4, lines = wrap(d.desc, sz, w - 16), why = queWhy(i), wl = why ? wrap(why, sz, w - 16) : [];
+    const h = 12 + 18 + (lines.length + wl.length) * lh + 8 + 40, b = qr[i];
+    const x = Math.max(8, Math.min(G.w - w - 8, b.x + b.w + 8)), y = Math.max(8, Math.min(G.h - h - 8, b.y));
+    return { x: x, y: y, w: w, h: h, d: d, lines: lines, wl: wl, lh: lh, sz: sz, btn: { x: x + 8, y: y + h - 44, w: w - 16, h: 36 } };
+  }
+  function drawQueTip(ctx) {
+    const q = qtipRect(); qbtn = q && q.btn; if (!q) return;
+    A.panel(ctx, q, { fill: PAL.denSon, border: PAL.vangKim });
+    A.text(ctx, q.d.name, q.x + 8, q.y + 6, { size: 15, color: PAL.vangKim });
+    q.lines.forEach((l, k) => A.text(ctx, l, q.x + 8, q.y + 26 + k * q.lh, { size: q.sz, color: PAL.giayDo }));
+    q.wl.forEach((l, k) => A.text(ctx, l, q.x + 8, q.y + 28 + (q.lines.length + k) * q.lh, { size: q.sz, color: PAL.vangKim }));
+    A.button(ctx, q.btn, T.btn.dung, q.wl.length ? 'disabled' : qdown ? 'down' : 'idle');
+  }
   function drawTip(ctx) {
     const i = tipPin != null ? tipPin : tipHover; if (i == null || !run.qn[i]) return;
     const q = D.QUY_NHAN[run.qn[i].id], G = Game(), w = Math.min(K.tipW, G.w - 16), sz = K.tipSize, lh = sz + 4;
@@ -342,15 +423,16 @@
   }
   function update(dt) {
     if (!r) return; relayout();
-    [hand, opp, qnS.filter(Boolean)].forEach(l => l.forEach(s => s.update(dt)));
+    [hand, opp, qnS.filter(Boolean), queS.filter(Boolean), swapFly].forEach(l => l.forEach(s => s.update(dt)));
+    swapFly = swapFly.filter(s => !s.dead);
     groups.forEach(g => { g.list.forEach(s => s.update(dt)); g.list = g.list.filter(s => !s.dead); }); groups = groups.filter(g => g.list.length);
     sync();
   }
   function draw(ctx) {
     if (!r) return;
-    TL.HUD.draw(ctx, vm, r); SP.drawAll(ctx, qnS.filter(Boolean)); SP.drawAll(ctx, opp);
+    TL.HUD.draw(ctx, vm, r); SP.drawAll(ctx, qnS.filter(Boolean)); drawQue(ctx); SP.drawAll(ctx, opp);
     groups.forEach(g => SP.drawAll(ctx, g.list)); SP.drawAll(ctx, hand);
-    TL.HUD.drawOver(ctx, vm, r); drawTip(ctx); if (pay) drawPay(ctx);
+    SP.drawAll(ctx, swapFly); TL.HUD.drawOver(ctx, vm, r); drawTip(ctx); drawQueTip(ctx); if (pay) drawPay(ctx);
   }
   function played() {   // bounding box of the cards on the table (just played), with room for their popups
     const l = groups.length ? groups[groups.length - 1].list.filter(s => !s.dead) : []; if (!l.length) return [];
@@ -370,5 +452,5 @@
   function exit() { dead = true; FX.queue.clear(); FX.reset(); if (TU()) TU().cancel(); }
 
   TL.Screens = TL.Screens || {};
-  TL.Screens.table = { enter: enter, exit: exit, resize: () => { lk = ''; }, update: update, draw: draw, pointer: pointer, key: key_, tutRects: tutRects };
+  TL.Screens.table = { enter: enter, exit: exit, resize: () => { lk = ''; }, update: update, draw: draw, pointer: pointer, key: key_, tutRects: tutRects, _que: () => ({ qr: qr, btn: qbtn, ready: !!ready && vm.turn === 0 && !FX.queue.busy(), hand: hand.map(x => ({ id: x.id, x: x.V.x, y: x.V.y })), msg: vm.msg, x2: vm.x2, vanLeft: vm.vanLeft, reveal: st && st.reveal }) };
 })(globalThis.TL = globalThis.TL || {});

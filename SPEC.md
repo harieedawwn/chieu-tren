@@ -13,7 +13,8 @@ Path (purpose) · owner job. Only the owner edits a file; BALANCE may change num
 - js/art.js (pixel art, font, UI draw helpers), demo/art.html · ART
 - js/fx.js (queue, tweens, popups, shake, particles), js/sprite.js (springy card sprites), demo/fx.html · FX
 - js/bg.js (swirl background, CRT), js/audio.js (synth sound), demo/atmos.html · ATMOS
-- js/scene.js (Screens.table) · TABLE
+- js/scene.js (Screens.table incl. Quẻ slots) · TABLE
+- js/content.js (extra Quý nhân, Quẻ, Bao lì xì, luật nhà, TEXT), js/art2.js (art for them), js/shop.js (Chợ Tết screen), js/collection.js (Sổ tay, title/end wrappers) · see §12
 - js/tutorial.js (Ông Táo guided ván, Chợ Tết tour, boss tip) · TUTORIAL
 - js/screens.js (Screens.title, shop incl. payout, end, settings) · SCREENS
 
@@ -143,3 +144,9 @@ Realistic, no music, no chiptune; synthesised with WebAudio (noise, filters, res
 Kept as real terms: heo, chặt, đè, đôi, sám, sảnh, đôi thông, tứ quý, rác, thối heo, cóng, tới trắng, bỏ lượt, Lì xì, Quý nhân, Chợ Tết, Bàn nhỏ/lớn/trùm, Luật nhà.
 Style: effect first, plain, with its number ("Đôi: +3 Nhân."). Flavour quote optional, at most 6 words, only when clearly funny. Tutorial lines: instructions of 14 words or fewer saying what to do and why. No invented folk phrasing.
 Content lives in js/content.js (extends TL.DATA and TL.CFG: QN2, QUE, HOUSE2, RARITY_W). Rarity: thường (plain), hiếm (men lam), quý (vàng kim).
+
+## 13 Added systems (v2)
+- Run: `run.que` (2 slots), `run.seen`, `run.bosses` (house rule per chặng, drawn without repeats from 6), `run.flags.x2Next`, `run.vanExtra`, `run.pack`, `run.endless`; SAVE_VERSION 2 (v1 saves migrate). Shop = 2 Quý nhân (rarity 70/25/5, never owned) + 2 Sao + 1 Quẻ + 1 Bao lì xì. `Run.useQue`, `openPack`/`choosePack`, `continueEndless` (targets ×CFG.ENDLESS.TARGET_X per chặng after the 3rd).
+- Rules: mods `sameSuitStraight`, `noHeoFinish`, `twoVans`; `Rules.swap`; `state.reveal[seat]` (Soi bài) and `state.peek` (Thầy bói); `view.oppHand` only while revealed.
+- Screens: Chợ Tết in js/shop.js, Sổ tay in js/collection.js (seen set in localStorage `chieutren.seen`), "Chơi tiếp: vô tận" on the win screen. Flags: `?auto&endless`.
+- Tests: rules2, qn, que (node), art2.check (node), headless.js (Chromium).

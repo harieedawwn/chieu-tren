@@ -88,7 +88,7 @@
     title: { play: 'Chơi mới', cont: 'Chơi tiếp', settings: 'Cài đặt', sotay: 'Sổ tay' },
     btn: {
       danh: 'Đánh', bo: 'Bỏ lượt', goiy: 'Gợi ý', xep: 'Xếp', menu: 'Menu',
-      xepRank: 'Xếp: số', xepSuit: 'Xếp: chất', ok: 'Được', back: 'Quay lại', dung: 'Dùng',
+      xepRank: 'Xếp: số', xepSuit: 'Xếp: chất', ok: 'Được', back: 'Quay lại', dung: 'Dùng', chon: 'Chọn',
     },
     hud: {
       target: 'Mục tiêu', diemBan: 'Tổng điểm', pot: 'Hũ', van: 'Ván', vanLeft: 'Còn %d ván',
@@ -114,7 +114,7 @@
     },
     rarity: { thuong: 'Thường', hiem: 'Hiếm', quy: 'Quý' },
     pack: { title: 'Bao lì xì', pick: 'Chọn 1 trong 3', skip: 'Bỏ qua', empty: 'Hết chỗ, hãy bán bớt.', tear: 'Xé bao' },
-    que: { empty: 'Ô trống', pick: 'Chọn %d lá để đổi', swapped: 'Đã đổi bài.', gotSao: '+1 cấp %s', gotLixi: '+%d lì xì', gotVan: '+1 ván', x2Set: 'Lần đánh kế ×2 Nhân' },
+    que: { soi: 'Thấy bài', empty: 'Ô trống', pick: 'Chọn %d lá để đổi', swapped: 'Đã đổi bài.', gotSao: '+1 cấp %s', gotLixi: '+%d lì xì', gotVan: '+1 ván', x2Set: 'Lần đánh kế ×2 Nhân' },
     end: {
       win: 'Mùng Một', winSub: 'Bạn đã qua cả ba chặng.',
       lose: 'Thua bàn', loseSub: 'Hết ván mà chưa đủ điểm.',

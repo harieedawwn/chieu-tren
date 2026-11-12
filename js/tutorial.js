@@ -9,6 +9,7 @@
  *   notify(event, data)            from the table: ready, sel(ids), played{seat,type}, scoreDone{seat,type}, vong{winner}, vanEnd, cleared
  *   gate(point, type) -> bool      false while a step holds the queue at that point (afterScore, afterVong, afterVan, beforePay, boss)
  *   onShop() / onBoss()            first Chợ Tết visit / first bàn trùm: start the one-off tips
+ *   onFirst(key)                   one-line bubble the first time ever (localStorage CFG.STORAGE.tut + '.first'): key chat|thoi|cong|toiTrang, text TEXT.first[key]; no-op while another lesson runs
  *   cancel()                       drop the running lesson without saving (leaving the table)
  *   update(dt) / draw(ctx) / pointer(e) -> consumed? / key(k) -> consumed?   called by main
  * Steps: {k, say, say2?, on?: trigger event, wait: 'tap'|'play', cards?: [ids], target: names, avoid?: names, gate?, gateType?, needDone?: {seat,type}, slow?}.
@@ -26,6 +27,10 @@
     try { const o = JSON.parse(localStorage.getItem(CFG.STORAGE.tut)); if (o && typeof o === 'object') return { main: !!o.main, shop: !!o.shop, boss: !!o.boss }; } catch (e) {}
     return { main: false, shop: false, boss: false };
   }
+  const FIRST_KEY = CFG.STORAGE.tut + '.first';
+  function loadFirst() { try { const o = JSON.parse(localStorage.getItem(FIRST_KEY)); if (o && typeof o === 'object') return o; } catch (e) {} return {}; }
+  let first = loadFirst(), firstKey = null;
+  function saveFirst() { try { localStorage.setItem(FIRST_KEY, JSON.stringify(first)); } catch (e) {} }
   let flags = loadFlags();
   function save() { try { localStorage.setItem(CFG.STORAGE.tut, JSON.stringify(flags)); } catch (e) {} }
 
@@ -78,6 +83,8 @@
   function finish() {
     setSlow(false);
     if (mode === 'main') flags.main = true; else if (mode === 'shop') flags.shop = true; else if (mode === 'boss') flags.boss = true;
+    else if (mode === 'first') { first[firstKey] = true; saveFirst(); }
+    if (mode === 'main') { first.chat = first.thoi = true; saveFirst(); }
     save(); mode = null; steps = []; shown = false;
   }
   function skip() { setSlow(false); flags.main = flags.shop = flags.boss = true; save(); mode = null; steps = []; shown = false; snd('button'); }
@@ -303,7 +310,7 @@
     done: () => flags.main,
     on: () => !!mode,
     mode: () => mode,
-    begin(run) { flags = { main: false, shop: false, boss: false }; runRef = run || null; start('main'); },
+    begin(run) { flags = { main: false, shop: false, boss: false }; first = {}; saveFirst(); runRef = run || null; start('main'); },
     restart(run) { this.begin(run); },
     vanOpts(run) { return mode === 'main' && run.chang === 0 && run.ban === 0 && run.vanUsed === 0 ? { hands: HANDS } : undefined; },
     oppMove(view) {
@@ -316,6 +323,10 @@
     allowCard: allowCard, allowBtn: allowBtn, nudge: nudge, notify: notify, gate: gate, cancel() { setSlow(false); mode = null; steps = []; shown = false; },
     attach(run) { if (mode === 'main' && runRef !== run) this.cancel(); },
     onShop() { if (!mode && flags.main && !flags.shop) start('shop'); },
+    onFirst(k) {
+      if (mode || first[k] || !D.TEXT.first[k]) return;
+      firstKey = k; mode = 'first'; steps = [{ k: 'first', say: D.TEXT.first[k], wait: 'tap', target: ['table'] }]; si = 0; oppN = 0; arm();
+    },
     onBoss() { if (!mode && flags.main && !flags.boss) start('boss'); },
     _state() { const s = cur(), h = holes(); return { mode: mode, k: s && s.k, wait: s && s.wait, shown: shown, ready: ready, selOK: selOK, typedAll: !!LB && typed >= LB.n, bubble: LB && LB.rect, btns: btnR, holes: h.holes, avoid: h.avoid, say: LB && LB.say }; },
     update: update, draw: draw, pointer: pointer, key: key, _steps: { MAIN: MAIN, SHOP: SHOP, BOSS: BOSS, HANDS: HANDS },

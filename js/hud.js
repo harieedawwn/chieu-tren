@@ -10,7 +10,7 @@
  *   isEnabled(rects, id) -> bool
  *   demoScreen() -> Screen         the ?hud screen: fake mid-game vm, real card textures placed with Sprite.fan, clickable cards and buttons
  * vm extras read when present: hoverBtn, downBtn (button id -> hover/pressed look), house.short, deckLeft, live (false = before the deal: no turn ribbon, no card count),
- *   vanNo (current ván, 1-based; shown "Ván n/max"), j{diem,the,pot,diemBan} (FX.juice holders: the number swells), hl (tutorial spotlight, read by the tutorial only).
+ *   x2 (bool: Gấp đôi pending, draws a ×2 badge on the Nhân box), vanNo (current ván, 1-based; shown "Ván n/max"), j{diem,the,pot,diemBan,van} (FX.juice holders: the number swells), hl (tutorial spotlight, read by the tutorial only).
  * Text: every string goes through TL.Art.textC / TL.Art.badge (measured, centred from the ink box); Quy nhan name bars are labelled in drawOver only when the name fits at 9 px or more.
  */
 (function (TL) {
@@ -383,7 +383,7 @@
       A().panel(ctx, b.r, { fill: PAL.denSon, border: PAL.vangKim, shadow: false, radius: 4 });
       const s2 = Math.min(Math.round(20 * u), b.r.h - 8), iy = b.r.y + (b.r.h - s2) / 2;
       icon(ctx, b.ic, b.r.x + 6, iy, s2);
-      txt(ctx, b.t, b.r.x + 6 + s2 + 6, b.r.y + b.r.h / 2, 13, { maxW: b.r.w - s2 - 18, color: b.gold ? PAL.vangKim : PAL.giayDo, min: 11 });
+      txt(ctx, b.t, b.r.x + 6 + s2 + 6, b.r.y + b.r.h / 2, 13 * (b.ic === 'van' ? juiced(vm, 'van') : 1), { maxW: b.r.w - s2 - 18, color: b.gold ? PAL.vangKim : PAL.giayDo, min: 11 });
     });
   }
 
@@ -412,6 +412,7 @@
     }
     scoreBox(ctx, r.diemBox, TX.hud.diem, vm.diem || 0, PAL.menLam, empty, jd);
     scoreBox(ctx, r.theBox, TX.hud.the, vm.the || 0, PAL.doSon, empty, jt);
+    if (vm.x2) A().badge(ctx, TX.hud.x2, r.theBox.x + r.theBox.w - 16, r.theBox.y - 2, { size: 14, fill: PAL.vangKim, ink: PAL.denSon, edge: PAL.denSon, anchor: 'bottom', shadow: false, bw: 1 });   // Gấp đôi pending
     txt(ctx, '×', (r.diemBox.x + r.diemBox.w + r.theBox.x) / 2, r.diemBox.y + r.diemBox.h / 2, land ? 18 : 16, { align: 'center', color: PAL.vangKim, min: 14, alpha: empty ? 0.45 : 1 });
   }
 
@@ -428,7 +429,7 @@
     let sx = rx;
     stat.forEach(sv => {
       const wt = TW(sv.t, 12), isz = Math.round(16 * UI); sx -= wt;
-      txt(ctx, sv.t, sx, r1, 12, { color: sv.c, min: 11 }); sx -= isz + 2; icon(ctx, sv.ic, sx, r1 - isz / 2, isz); sx -= 10;
+      txt(ctx, sv.t, sx, r1, 12 * (sv.ic === 'van' ? juiced(vm, 'van') : 1), { color: sv.c, min: 11 }); sx -= isz + 2; icon(ctx, sv.ic, sx, r1 - isz / 2, isz); sx -= 10;
     });
     const nx = lx + kb.w + 8, nw = sx - nx;
     txt(ctx, (vm.chang && vm.chang.name || '') + ' · ' + TX.hud.ban + ' ' + ((vm.ban && vm.ban.idx || 0) + 1) + '/3', nx, r1, 13, { color: PAL.vangKim, maxW: nw, min: 10 });

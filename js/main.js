@@ -2,7 +2,7 @@
  * API  TL.Game = {ctx, w, h, dpr, scale, safe, run, settings{sound,speed,scanlines,reducedMotion}, screen, setScreen(name,args), saveSettings(), applySettings(), autoResult}
  *   w, h = CSS px of the canvas; ctx is pre-scaled by dpr, smoothing off; scale = integer art scale from HUD.layout(w,h).cardH.
  *   setScreen('title'|'table'|'shop'|'end'|'settings'|'back', args): 'settings' opens as an overlay over the paused screen, 'back' closes it.
- *   Screen = {enter(args), exit(), update(dt), draw(ctx), pointer({type:'down'|'move'|'up', x, y, id}), key({key:'enter'|'space'|'h'|'s'|'esc'})}
+ *   Screen = {enter(args), exit(), update(dt), draw(ctx), pointer({type:'down'|'move'|'up', x, y, id}), key({key:'enter'|'space'|'h'|'s'|'esc'|'left'|'right'|'up'|'down'})}
  *   Frame: FX.update, screen.update, BG.render, clear, (shake offset) screen.draw, overlay.draw, FX.draw. dt is clamped to 1/20 s.
  * The tutorial (tutorial.js) is drawn last and gets pointer/key first while it runs.
  * Flags: ?hud (fake mid-game HUD, no game) ?auto ?seed=N (read by the screens). Errors show a Vietnamese overlay (boot.js) instead of a blank page.
@@ -13,7 +13,7 @@
   const q = new URLSearchParams(location.search);
   const Game = TL.Game = {
     ctx: null, w: 640, h: 360, dpr: 1, scale: 2, safe: { t: 0, r: 0, b: 0, l: 0 }, run: null, screen: null, overlay: null, name: '', autoResult: null,
-    settings: { sound: true, speed: 1, scanlines: false, reducedMotion: false }, paused: false, flags: { hud: q.has('hud'), auto: q.has('auto'), seed: q.has('seed') ? +q.get('seed') : null },
+    settings: { sound: true, speed: 1, scanlines: false, reducedMotion: false }, paused: false, flags: { hud: q.has('hud'), auto: q.has('auto'), endless: q.has('endless'), seed: q.has('seed') ? +q.get('seed') : null },
   };
   const guard = (fn, label) => (window.Boot ? Boot.guard(fn, label) : fn);
 
@@ -101,7 +101,7 @@
   const top = () => Game.overlay || Game.screen;
 
   // ---------------------------------------------------------------- input
-  const KEYS = { Enter: 'enter', ' ': 'space', Spacebar: 'space', h: 'h', H: 'h', s: 's', S: 's', Escape: 'esc' };
+  const KEYS = { Enter: 'enter', ' ': 'space', Spacebar: 'space', h: 'h', H: 'h', s: 's', S: 's', Escape: 'esc', ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
   function unlock() { try { if (TL.Audio && TL.Audio.unlock) TL.Audio.unlock(); } catch (e) {} }
   function bindInput() {
     const pos = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
