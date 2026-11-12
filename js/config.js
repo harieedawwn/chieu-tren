@@ -53,7 +53,7 @@
     UNUSED_VAN_PTS: 1,    // li xi per unused van at clear
     INTEREST_PER: 5,      // "bo ong": 1 li xi per this many held (counted before payout)
     INTEREST_MAX: 5,      // cap on interest
-    TARGETS: [[160, 250, 360], [800, 1300, 2000], [3500, 6500, 11000]], // [chang][ban] Diem ban target (placeholder)
+    TARGETS: [[130, 205, 290], [620, 1000, 1500], [2200, 3600, 5400]], // [chang][ban] Diem ban target (placeholder)
     AI_BY_CHANG: [1, 2, 3],  // AI level per chang index
     SHOP: {
       QN_COUNT: 2,        // Quy nhan offers per shop
@@ -129,7 +129,7 @@
     DEVICES: [[360, 640], [390, 844], [844, 390], [768, 1024], [1024, 768], [1366, 768], [1920, 1080]], // 7-device fit list [w,h]
 
     // ---- platform ----
-    STORAGE: { save: 'chieutren.save', settings: 'chieutren.settings', tut: 'chieutren.tut' }, // localStorage keys
+    STORAGE: { save: 'chieutren.save', settings: 'chieutren.settings', tut: 'chieutren.tut', seen: 'chieutren.seen' }, // localStorage keys
     SAVE_VERSION: 2,      // RunState.v; load() rejects other versions
     AUTO_SPEED: 3,        // ?auto forces this speed
   };

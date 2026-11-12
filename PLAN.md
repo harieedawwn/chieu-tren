@@ -5,7 +5,7 @@
 - [x] 4 Run: Quẻ, useQue, shop 6 món, packs, 6 boss ngẫu nhiên, endless, run.seen, tests/que.test.js
 - [x] 5 Màn Chợ Tết: js/shop.js (thẻ, rarity, mở bao)
 - [x] 6 Bàn chơi + Sổ tay + vô tận: scene.js, collection.js, nút title/end, Playwright 4 cỡ
-- [ ] 7 Cân bằng sim, README, deploy, kiểm tra trang live
+- [x] 7 Cân bằng sim, README, deploy, kiểm tra trang live
 
 Quy ước: đẩy bằng `git push origin HEAD:main` (nhánh làm việc claude/gracious-heisenberg-uqoxhj cũng được đẩy).
-Next: bước 7 (cân bằng xong, còn README đã viết, chạy test đầy đủ + auto seed 1,2,3 + deploy)
+Next: xong tất cả. Còn lại: không có việc bắt buộc.

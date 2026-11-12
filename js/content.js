@@ -44,7 +44,7 @@
   CFG.HOUSE2 = {
     TWO_VANS: 2,           // Dì Út: ván count of that bàn
   };
-  CFG.ENDLESS = { TARGET_X: 2.2 };   // endless: each chặng after the 3rd multiplies the chặng-3 targets by this, compounding
+  CFG.ENDLESS = { TARGET_X: 2.8 };   // endless: each chặng after the 3rd multiplies the chặng-3 targets by this, compounding
   CFG.RARITY_W = { thuong: 70, hiem: 25, quy: 5 };   // Quý nhân shop rarity weights
   CFG.SHOP.QUE_COUNT = 1;
   CFG.SHOP.PACK_COUNT = 1;
