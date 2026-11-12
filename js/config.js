@@ -130,7 +130,7 @@
 
     // ---- platform ----
     STORAGE: { save: 'chieutren.save', settings: 'chieutren.settings', tut: 'chieutren.tut' }, // localStorage keys
-    SAVE_VERSION: 1,      // RunState.v; load() rejects other versions
+    SAVE_VERSION: 2,      // RunState.v; load() rejects other versions
     AUTO_SPEED: 3,        // ?auto forces this speed
   };
 

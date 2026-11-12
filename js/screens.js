@@ -196,7 +196,7 @@
     function enter(args) {
       const g = G(); run = (args && args.run) || g.run; g.run = run;
       FX.reset(); if (TL.BG) TL.BG.setMood('shop');
-      items = TL.Run.shop(run); cv = { lixi: run.money }; sel = null; lvl = null; fly = []; btns = Btns(); key = ''; note = null; busy = 0; menuDown = false;
+      items = TL.Run.shop(run).filter(it => it.kind === 'qn' || it.kind === 'sao'); cv = { lixi: run.money }; sel = null; lvl = null; fly = []; btns = Btns(); key = ''; note = null; busy = 0; menuDown = false;
       lay(); build(); buildBtns(); saveRun(run);
       if (TL.Tutorial && !g.flags.auto) TL.Tutorial.onShop();
       shopS.forEach((s, i) => { if (s) s.deal({ x: L.dealFrom.x, y: L.dealFrom.y }, 0.1 + i * 0.1, texOf(items[i])); });
@@ -243,7 +243,7 @@
     }
     function doReroll() {
       const r = TL.Run.reroll(run); if (!r.ok) { say(T.shop.poor); return; }
-      snd('shuffle'); setMoney(0); unselect(); lvl = null; items = TL.Run.shop(run); shopS = items.map((it, i) => mkShop(i));
+      snd('shuffle'); setMoney(0); unselect(); lvl = null; items = TL.Run.shop(run).filter(it => it.kind === 'qn' || it.kind === 'sao'); shopS = items.map((it, i) => mkShop(i));
       shopS.forEach((s, i) => { if (s) s.deal({ x: L.dealFrom.x, y: L.dealFrom.y }, 0.05 + i * 0.09, texOf(items[i])); });
       saveRun(run);
     }

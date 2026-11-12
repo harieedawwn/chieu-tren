@@ -102,9 +102,9 @@ eq(S.vanBonus(r, VE({ winner: 1, heo: [2, 0], left: [4, 0] })).total, -2 * CFG.T
 // ---- create / ban / startVan
 r = Run.create(42); eq([r.phase, r.chang, r.ban, r.money, r.vanUsed, r.diemBan], ['ban', 0, 0, CFG.START_MONEY, 0, 0], 'create'); eq(r.qn.length, 5, '5 slots');
 let bi = Run.ban(r); eq([bi.name, bi.kind, bi.target, bi.vanMax, bi.vanLeft, bi.aiLevel, bi.last, bi.house], ['Thím Út', 'nho', CFG.TARGETS[0][0], 3, 3, 1, false, null], 'ban info');
-r.chang = 2; r.ban = 2; bi = Run.ban(r); eq([bi.last, bi.house, bi.mods, bi.rule.name], [true, 'ong_sau', { mustBeat: true }, 'Ông Sáu'], 'boss ban info');
+r.bosses = ['ba_noi', 'chu_ba', 'ong_sau']; r.chang = 2; r.ban = 2; bi = Run.ban(r); eq([bi.last, bi.house, bi.mods, bi.rule.name], [true, 'ong_sau', { mustBeat: true }, 'Ông Sáu'], 'boss ban info');
 [[0, 'ba_noi', { oppLeads: true }], [1, 'chu_ba', { noChat: true }]].forEach(([c, h, m]) => { r.chang = c; r.ban = 2; eq(Run.ban(r).mods, m, 'mods ' + h); });
-r = Run.create(42); r.chang = 0; r.ban = 2; van = Run.startVan(r); eq(van.turn, 1, 'oppLeads from boss rules'); eq(van.mods, { oppLeads: true }, 'van mods');
+r = Run.create(42); r.bosses[0] = 'ba_noi'; r.chang = 0; r.ban = 2; van = Run.startVan(r); eq(van.turn, 1, 'oppLeads from boss rules'); eq(van.mods, { oppLeads: true }, 'van mods');
 r = Run.create(42); const v1 = Run.startVan(r), v1b = Run.startVan(Run.create(42)); eq(v1.hands, v1b.hands, 'same seed same deal'); eq(v1.peek, [], 'no reveal without thay boi');
 ok(v1.hands[0].length === CFG.HAND_SIZE, 'hand size');
 r.vanNo = 1; ok(JSON.stringify(Run.startVan(r).hands) !== JSON.stringify(v1.hands), 'ván seed differs by vanNo');
@@ -150,7 +150,7 @@ r = Run.create(1); r.chang = 2; r.ban = 2; r.phase = 'payout'; Run.payout(r); eq
 
 // ---- shop
 r = Run.create(7); r.phase = 'payout'; r.money = 50; Run.payout(r); let items = Run.shop(r);
-eq(items.map(i => i.kind), ['qn', 'qn', 'sao', 'sao'], 'shop kinds'); ok(items[0].id !== items[1].id && items[2].id !== items[3].id, 'distinct'); ok(items.every(i => !i.sold), 'unsold');
+eq(items.map(i => i.kind), ['qn', 'qn', 'sao', 'sao', 'que', 'pack'], 'shop kinds'); ok(items[0].id !== items[1].id && items[2].id !== items[3].id, 'distinct'); ok(items.every(i => !i.sold), 'unsold');
 ok(items.filter(i => i.kind === 'sao').every(i => i.price === CFG.PRICE.SAO) && items.filter(i => i.kind === 'qn').every(i => i.price === CFG.PRICE.QN[i.id]), 'prices');
 const r7 = Run.create(7); r7.phase = 'payout'; r7.money = 50; Run.payout(r7); eq(Run.shop(r7), items, 'shop reproducible by seed');
 let mm = r.money; let b = Run.buy(r, 0); eq([b.ok, r.money, r.qn[0] && r.qn[0].id, items[0].sold], [true, mm - items[0].price, items[0].id, true], 'buy qn'); eq(r.qn[0].n, 0, 'new qn counter 0');
@@ -164,7 +164,7 @@ r.qn[2] = { id: 'dan_cho_lon', n: 0 }; mm = r.money; eq(Run.sell(r, 2), { ok: tr
 // reroll
 r = Run.create(7); r.phase = 'payout'; r.money = 100; Run.payout(r); Run.shop(r); const before = JSON.stringify(r.shop.items); mm = r.money;
 eq(Run.reroll(r).ok, true, 'reroll 1'); eq(r.money, mm - CFG.SHOP.REROLL_BASE, 'reroll cost 1'); mm = r.money; Run.reroll(r); eq(r.money, mm - (CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP), 'reroll cost 2');
-eq(r.shop.rerolls, 2, 'rerolls count'); eq(r.shop.items.length, 4, 'reroll keeps 4 items'); ok(r.shop.items.every(i => !i.sold), 'reroll fresh items');
+eq(r.shop.rerolls, 2, 'rerolls count'); eq(r.shop.items.length, 6, 'reroll keeps 6 items'); ok(r.shop.items.every(i => !i.sold), 'reroll fresh items');
 r.money = 0; eq(Run.reroll(r), { ok: false, why: 'money' }, 'reroll poor');
 r = Run.create(7); r.qn[0] = { id: 'ong_do', n: 0 }; r.qn[1] = { id: 'heo_dat', n: 0 }; for (let i = 0; i < 20; i++) { r.shop = { items: [], rerolls: 0, n: i }; Run.shop(r); ok(!r.shop.items.some(z => z.kind === 'qn' && (z.id === 'ong_do' || z.id === 'heo_dat')), 'owned not offered'); }
 // nextBan
