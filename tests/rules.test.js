@@ -1,6 +1,6 @@
 /* tests/rules.test.js  node tests/rules.test.js : prints only failures and one summary line */
 const path = require('path'); const J = f => require(path.join(__dirname, '..', 'js', f));
-['config', 'data', 'cards', 'rules', 'ai'].forEach(J);
+['config', 'data', 'content', 'cards', 'rules', 'ai'].forEach(J);
 const TL = globalThis.TL, C = TL.Cards, R = TL.Rules, AI = TL.AI, CFG = TL.CFG;
 let n = 0, bad = 0;
 const ok = (c, m) => { n++; if (!c) { bad++; console.log('FAIL: ' + m); } };

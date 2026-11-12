@@ -2,7 +2,7 @@
  * API  (RunState is plain JSON, SPEC §4)
  *   TL.Run.create(seed) -> run            new run at chặng 1 bàn 1, phase 'ban'
  *   TL.Run.ban(run) -> BanInfo            current bàn (target, opp, luật nhà, mods, ván left)
- *   TL.Run.startVan(run, opts?) -> VanState      Rules.newVan with house mods + scoreFn bound to run; sets reveal (Thầy bói)
+ *   TL.Run.startVan(run, opts?) -> VanState      Rules.newVan with house mods + scoreFn bound to run; sets peek (Thầy bói)
  *   TL.Run.record(run, events)            stats, Điểm bàn += pot on vòng won by seat 0, opponent take, lastWinner
  *   TL.Run.endVan(run, vanEndEvent) -> 'next'|'cleared'|'lost'   vanUsed++, vanNo++, applies vanBonus, floors Điểm bàn at 0
  *   TL.Run.payout(run) -> {lines:[{label, amount}], total}   applies once (repeat call returns the same lines)
@@ -24,7 +24,7 @@
     return {
       v: CFG.SAVE_VERSION, seed: seed, vanNo: 0, phase: 'ban', chang: 0, ban: 0, money: CFG.START_MONEY,
       qn: Array.from({ length: CFG.SHOP.QN_SLOTS }, () => null), sao: sao, diemBan: 0, vanUsed: 0, lastWinner: null,
-      van: { stack: 0, oppTake: 0 }, shop: { items: [], rerolls: 0, n: 0 }, paid: false, lastPayout: null,
+      van: { stack: 0, oppTake: 0 }, flags: {}, shop: { items: [], rerolls: 0, n: 0 }, paid: false, lastPayout: null,
       stats: { vans: 0, wins: 0, chat: 0, bestPlay: 0, bestPot: 0, toiTrang: 0, earned: 0 },
     };
   }
@@ -46,7 +46,7 @@
       rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
     });
-    st.reveal = S.slotOf(run, 'thay_boi') >= 0 ? st.hands[1].slice(-CFG.QN.THAY_BOI_REVEAL) : [];
+    st.peek = S.slotOf(run, 'thay_boi') >= 0 ? st.hands[1].slice(-CFG.QN.THAY_BOI_REVEAL) : [];
     return st;
   }
 

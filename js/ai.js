@@ -3,6 +3,7 @@
  *   TL.AI.choose(view, level 1-3, rng?) -> {type:'play', cardIds} | {type:'pass'}
  *     cardIds always come from view.legal; pass only when view.canPass. Params: CFG.AI[level].
  *     rng is optional: default is a deterministic rng seeded from the view (same view -> same move).
+ *     mods.noHeoFinish: dumps its heo while other cards remain (never holds them), so it is not stuck with a lone heo
  *   TL.AI.plan(hand) -> Combo[]  groups (sanh, đôi thông, tứ quý, sám, đôi, rác) with the fewest groups / least rác
  */
 (function (TL) {
@@ -47,6 +48,11 @@
     if (fin) return mv(fin);
     if (rng() < P.mistake) { const i = Math.floor(rng() * (plays.length + (v.canPass ? 1 : 0))); return i < plays.length ? mv(plays[i]) : PASS; }
     const g = plan(v.hand), urgent = v.oppCount <= 3;
+    const noHeo = !!(v.mods && v.mods.noHeoFinish), heoLeft = v.hand.filter(C.isHeo).length;
+    if (noHeo && heoLeft && v.hand.length - heoLeft <= 2) {     // running out of other cards: spend a heo now
+      const h = plays.filter(c => hasHeo(c) && c.len < v.hand.length && c.type !== 'tuquy').sort((a, b) => a.len - b.len || a.top - b.top)[0];
+      if (h) return mv(h);
+    }
 
     if (v.lead) {
       let pool = g.filter(c => !bomb(c) && !hasHeo(c));
@@ -66,7 +72,7 @@
     }
 
     const heavyOK = urgent || v.pot >= P.chatMinPot;
-    const cand = plays.filter(c => bomb(c) ? heavyOK : hasHeo(c) ? heavyOK || rng() >= P.heoHold : true);
+    const cand = plays.filter(c => bomb(c) ? heavyOK : hasHeo(c) ? heavyOK || noHeo || rng() >= P.heoHold : true);
     if (!cand.length) return v.canPass ? PASS : mv(plays[0]);
     const after = c => cost(plan(v.hand.filter(x => !c.cards.includes(x))));
     let pick = cand[0], best = after(pick);

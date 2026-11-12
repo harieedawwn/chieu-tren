@@ -6,6 +6,10 @@
  *   TL.Rules.legal(state, seat)         -> {plays: Combo[], canPass}   empty when not seat's turn or ván over
  *   TL.Rules.view(state, seat)          -> View (own hand only; no hands/log); legal/canPass filled on seat's turn
  *   TL.Rules.winner(state)              -> 0 | 1 | null
+ *   TL.Rules.swap(state, seat, cardIds, rng) -> Event[]  {type:'swap', seat, out, in}; swaps 1..3 own cards with cards not dealt this ván; own turn only; [] if illegal
+ * mods: noChat, mustBeat, oppLeads, sameSuitStraight (sảnh needs one suit), noHeoFinish (last play may not contain a heo), twoVans (read by Run)
+ * state.reveal = [bool, bool]: reveal[seat] true -> view(state, seat).oppHand (only then present) = the opponent's whole hand; both cleared when a hũ is taken (event 'vong').
+ * state.peek = id[] opponent cards shown by Thầy bói (set by Run.startVan, else []).
  * scoreFn(seat, combo, {chat, target, pot, lead}) -> Score; rules adds score.total to the pot and applies the chặt multiplier.
  */
 (function (TL) {
@@ -28,7 +32,7 @@
     const low = Math.min(...hands[0], ...hands[1]);
     const leader = mods.oppLeads ? 1 : o.leader === 0 || o.leader === 1 ? o.leader : hands[0].includes(low) ? 0 : 1;
     const s = { hands: hands, table: null, vongPlays: [], pot: 0, turn: leader, leader: leader, mods: mods, plays: [0, 0], played: [],
-      log: [], over: false, winner: null, toiTrang: null, reveal: [], scoreFn: o.scoreFn || zero };
+      log: [], over: false, winner: null, toiTrang: null, reveal: [false, false], peek: [], scoreFn: o.scoreFn || zero };
     const evs = [{ type: 'deal', hands: [hands[0].slice(), hands[1].slice()], leader: leader }];
     const quad = hands.findIndex(h => [48, 49, 50, 51].every(x => h.includes(x)));
     if (quad >= 0) {
@@ -47,10 +51,11 @@
 
   function play(s, seat, ids) {
     if (s.over || s.turn !== seat) return [];
-    const c = C.detect(ids);
+    const c = C.detect(ids, s.mods);
     if (!c || !c.cards.every(x => s.hands[seat].includes(x))) return [];
     const t = s.table && s.table.combo, k = C.beats(c, t, s.mods);
     if (!k) return [];
+    if (s.mods.noHeoFinish && C.finishesWithHeo(c, s.hands[seat]) && !C.legalPlays(s.hands[seat], t, s.mods).some(x => x.cards.join() === c.cards.join())) return [];
     const chat = k === 'chat', sc = s.scoreFn(seat, c, { chat: chat, target: t, pot: s.pot, lead: !t });
     s.pot += sc.total;
     const evs = [{ type: 'play', seat: seat, combo: c, score: sc, pot: s.pot }];
@@ -63,6 +68,7 @@
     s.plays[seat]++; s.played.push(...c.cards); s.table = { combo: c, seat: seat }; s.vongPlays.push({ seat: seat, combo: c });
     if (!s.hands[seat].length) {
       const pot = s.pot;
+      s.reveal = [false, false];
       evs.push({ type: 'vong', winner: seat, pot: pot, combo: c }, vanEnd(s, seat, pot, false));
     } else { s.turn = 1 - seat; evs.push({ type: 'turn', seat: s.turn, lead: false }); }
     return emit(s, evs);
@@ -71,15 +77,31 @@
   function pass(s, seat) {
     if (!legal(s, seat).canPass) return [];
     const w = 1 - seat, evs = [{ type: 'pass', seat: seat }, { type: 'vong', winner: w, pot: s.pot, combo: s.table.combo }, { type: 'turn', seat: w, lead: true }];
-    s.pot = 0; s.table = null; s.vongPlays = []; s.turn = w;
+    s.pot = 0; s.table = null; s.vongPlays = []; s.turn = w; s.reveal = [false, false];
     return emit(s, evs);
   }
 
   function view(s, seat) {
     const l = legal(s, seat);
-    return { seat: seat, hand: s.hands[seat].slice(), oppCount: s.hands[1 - seat].length, table: s.table && { combo: s.table.combo, seat: s.table.seat },
+    const v = { seat: seat, hand: s.hands[seat].slice(), oppCount: s.hands[1 - seat].length, table: s.table && { combo: s.table.combo, seat: s.table.seat },
       pot: s.pot, turn: s.turn, lead: s.table === null, played: s.played.slice(), plays: s.plays.slice(), mods: s.mods, legal: l.plays, canPass: l.canPass };
+    if (s.reveal[seat]) v.oppHand = s.hands[1 - seat].slice();
+    return v;
   }
 
-  TL.Rules = { newVan: newVan, play: play, pass: pass, legal: legal, view: view, winner: s => s.winner };
+  function swap(s, seat, ids, rng) {
+    const max = CFG.QUE ? CFG.QUE.DOI_MAX : 3;
+    if (s.over || s.turn !== seat || !Array.isArray(ids) || !ids.length || ids.length > max) return [];
+    const out = ids.slice().sort(asc), h = s.hands[seat];
+    if (out.some((x, i) => !h.includes(x) || (i && x === out[i - 1]))) return [];
+    const used = new Set(s.hands[0].concat(s.hands[1], s.played)), pool = [];
+    for (let i = 0; i < 52; i++) if (!used.has(i)) pool.push(i);
+    if (pool.length < out.length) return [];
+    const take = [];
+    for (let k = 0; k < out.length; k++) { const j = k + Math.floor(rng() * (pool.length - k)); const t = pool[k]; pool[k] = pool[j]; pool[j] = t; take.push(pool[k]); }
+    s.hands[seat] = h.filter(x => !out.includes(x)).concat(take).sort(asc);
+    return emit(s, [{ type: 'swap', seat: seat, out: out, in: take.slice().sort(asc) }]);
+  }
+
+  TL.Rules = { newVan: newVan, play: play, pass: pass, legal: legal, view: view, winner: s => s.winner, swap: swap };
 })(globalThis.TL = globalThis.TL || {});

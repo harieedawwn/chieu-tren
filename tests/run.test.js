@@ -1,6 +1,6 @@
 /* tests/run.test.js  node tests/run.test.js : prints only failures and one summary line */
 const path = require('path'); const J = f => require(path.join(__dirname, '..', 'js', f));
-['config', 'data', 'cards', 'rules', 'ai', 'scoring', 'run'].forEach(J);
+['config', 'data', 'content', 'cards', 'rules', 'ai', 'scoring', 'run'].forEach(J);
 const TL = globalThis.TL, C = TL.Cards, R = TL.Rules, S = TL.Scoring, Run = TL.Run, CFG = TL.CFG, D = TL.DATA, Q = CFG.QN;
 let n = 0, bad = 0;
 const ok = (c, m) => { n++; if (!c) { bad++; console.log('FAIL: ' + m); } };
@@ -105,10 +105,10 @@ let bi = Run.ban(r); eq([bi.name, bi.kind, bi.target, bi.vanMax, bi.vanLeft, bi.
 r.chang = 2; r.ban = 2; bi = Run.ban(r); eq([bi.last, bi.house, bi.mods, bi.rule.name], [true, 'ong_sau', { mustBeat: true }, 'Ông Sáu'], 'boss ban info');
 [[0, 'ba_noi', { oppLeads: true }], [1, 'chu_ba', { noChat: true }]].forEach(([c, h, m]) => { r.chang = c; r.ban = 2; eq(Run.ban(r).mods, m, 'mods ' + h); });
 r = Run.create(42); r.chang = 0; r.ban = 2; van = Run.startVan(r); eq(van.turn, 1, 'oppLeads from boss rules'); eq(van.mods, { oppLeads: true }, 'van mods');
-r = Run.create(42); const v1 = Run.startVan(r), v1b = Run.startVan(Run.create(42)); eq(v1.hands, v1b.hands, 'same seed same deal'); eq(v1.reveal, [], 'no reveal without thay boi');
+r = Run.create(42); const v1 = Run.startVan(r), v1b = Run.startVan(Run.create(42)); eq(v1.hands, v1b.hands, 'same seed same deal'); eq(v1.peek, [], 'no reveal without thay boi');
 ok(v1.hands[0].length === CFG.HAND_SIZE, 'hand size');
 r.vanNo = 1; ok(JSON.stringify(Run.startVan(r).hands) !== JSON.stringify(v1.hands), 'ván seed differs by vanNo');
-r = withQn(Run.create(42), 'thay_boi'); van = Run.startVan(r); eq(van.reveal.length, Q.THAY_BOI_REVEAL, 'reveal count'); ok(van.reveal.every(c => van.hands[1].includes(c)), 'reveal from opp hand');
+r = withQn(Run.create(42), 'thay_boi'); van = Run.startVan(r); eq(van.peek.length, Q.THAY_BOI_REVEAL, 'reveal count'); ok(van.peek.every(c => van.hands[1].includes(c)), 'reveal from opp hand');
 // scoreFn bound to run
 r = withQn(Run.create(42), 'ong_do'); van = Run.startVan(r); van.hands = [ids('5s 5c 9d'), ids('4s 6d')]; van.turn = 0; van.table = null;
 ev = R.play(van, 0, ids('5s 5c')); eq(ev[0].score.the, B.doi.the + Q.ONG_DO_THE, 'startVan scoreFn uses run');

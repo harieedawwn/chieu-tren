@@ -4,9 +4,9 @@
  *   TL.Cards.label(id)                   -> "10♦"
  *   TL.Cards.sortHand(ids, 'rank'|'suit')-> new sorted array
  *   TL.Cards.isHeo(id)                   -> true for any 2
- *   TL.Cards.detect(ids)                 -> Combo | null (rac doi sam tuquy sanh doithong; null on dupes/heo in runs)
+ *   TL.Cards.detect(ids, mods?)          -> Combo | null (rac doi sam tuquy sanh doithong; null on dupes/heo in runs); mods.sameSuitStraight: sảnh only when one suit
  *   TL.Cards.beats(combo, onTable, mods) -> false | 'beat' | 'chat'; onTable null = leading; mods.noChat blocks 'chat'
- *   TL.Cards.legalPlays(hand, onTable, mods) -> Combo[] every distinct playable combo, weakest first, chat last
+ *   TL.Cards.legalPlays(hand, onTable, mods) -> Combo[] every distinct playable combo, weakest first, chat last; mods.noHeoFinish drops a play that empties the hand with a heo (unless leading and nothing else is playable)
  */
 (function (TL) {
   'use strict';
@@ -18,13 +18,13 @@
   const sortHand = (ids, mode) => ids.slice().sort(mode === 'suit' ? (a, b) => (a & 3) - (b & 3) || a - b : asc);
   const mk = (type, c) => ({ type: type, cards: c, top: c[c.length - 1], len: c.length });
 
-  function detect(ids) {
+  function detect(ids, mods) {
     if (!Array.isArray(ids) || !ids.length) return null;
     const c = ids.slice().sort(asc), n = c.length, r = c.map(x => x >> 2);
     if (c.some((x, i) => !Number.isInteger(x) || x < 0 || x > 51 || (i && x === c[i - 1]))) return null;
     if (n <= 4 && r.every(x => x === r[0])) return mk(['', 'rac', 'doi', 'sam', 'tuquy'][n], c);
     if (r.includes(12)) return null;
-    if (n >= 3 && r.every((x, i) => x === r[0] + i)) return mk('sanh', c);
+    if (n >= 3 && r.every((x, i) => x === r[0] + i) && !(mods && mods.sameSuitStraight && c.some(x => (x & 3) !== (c[0] & 3)))) return mk('sanh', c);
     if (n >= 6 && n % 2 === 0 && r.every((x, i) => x === r[0] + (i >> 1))) return mk('doithong', c);
     return null;
   }
@@ -40,6 +40,7 @@
     return r === 'chat' && mods && mods.noChat ? false : r;
   }
 
+  const finishesWithHeo = (c, hand) => c.len === hand.length && c.cards.some(isHeo);
   const comb = (a, k) => k === 0 ? [[]] : a.length < k ? [] : comb(a.slice(1), k - 1).map(x => [a[0]].concat(x)).concat(comb(a.slice(1), k));
   const prod = ls => ls.reduce((acc, l) => acc.flatMap(p => l.map(x => p.concat(x))), [[]]);
 
@@ -52,9 +53,12 @@
       for (let e = s; e < 12 && by[e].length >= 2; e++) if (e - s >= 2) sets.push(...prod(by.slice(s, e + 1).map(a => comb(a, 2))));
     }
     const out = [];
-    sets.forEach(ids => { const c = detect(ids), k = c && beats(c, t, mods); if (k) out.push({ c: c, w: k === 'chat' ? 2 : c.type === 'tuquy' || c.type === 'doithong' ? 1 : 0 }); });
-    return out.sort((a, b) => a.w - b.w || a.c.len - b.c.len || a.c.top - b.c.top).map(o => o.c);
+    sets.forEach(ids => { const c = detect(ids, mods), k = c && beats(c, t, mods); if (k) out.push({ c: c, w: k === 'chat' ? 2 : c.type === 'tuquy' || c.type === 'doithong' ? 1 : 0 }); });
+    const all = out.sort((a, b) => a.w - b.w || a.c.len - b.c.len || a.c.top - b.c.top).map(o => o.c);
+    if (!mods || !mods.noHeoFinish) return all;
+    const ok = all.filter(c => !finishesWithHeo(c, hand));
+    return ok.length || t ? ok : all;   // leading with only a lone heo left: it may go out, otherwise the ván could never end
   }
 
-  TL.Cards = { makeDeck: makeDeck, label: label, sortHand: sortHand, detect: detect, beats: beats, legalPlays: legalPlays, isHeo: isHeo };
+  TL.Cards = { makeDeck: makeDeck, label: label, sortHand: sortHand, detect: detect, beats: beats, legalPlays: legalPlays, isHeo: isHeo, finishesWithHeo: finishesWithHeo };
 })(globalThis.TL = globalThis.TL || {});

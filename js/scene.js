@@ -39,7 +39,7 @@
     vm.pot = Math.round(cv.pot); vm.diemBan = Math.round(cv.diemBan); vm.lixi = Math.round(cv.lixi); vm.diem = Math.round(cv.diem); vm.the = Math.round(cv.the * 10) / 10;
     vm.flames = !!st && cv.pot >= info.target; vm.qn = qnCopy(); vm.oppCount = opp.length; vm.sortMode = sortMode;
     vm.oppHeo = S.slotOf(run, 'co_hang_xom') >= 0 ? opp.filter(s => C.isHeo(s.id)).length : null;
-    vm.oppReveal = st ? (st.reveal || []).filter(id => opp.some(s => s.id === id)) : [];
+    vm.oppReveal = st ? (st.peek || []).filter(id => opp.some(s => s.id === id)) : [];
     vm.busy = !!FX.queue.busy() || !ready || !!pay || !st || st.over; vm.canPlay = selOk && canAct(); vm.canPass = !!(leg && leg.canPass) && canAct();
     vm.msg = tmsg || selMsg; vm.hoverBtn = hovBtn; vm.downBtn = downBtn;
   }
@@ -185,7 +185,7 @@
     hand = C.sortHand(e.hands[0], sortMode).map(id => mk(A.back(), hs, id)); fanHand(0);
     opp = e.hands[1].map(id => mk(A.back(), os, id)); fanOpp(0);
     hand.forEach((s, i) => s.deal(d, i * 2 * st0, A.card(s.id)));
-    opp.forEach((s, i) => s.deal(d, (i * 2 + 1) * st0, st.reveal.indexOf(s.id) >= 0 ? A.card(s.id) : null));
+    opp.forEach((s, i) => s.deal(d, (i * 2 + 1) * st0, st.peek.indexOf(s.id) >= 0 ? A.card(s.id) : null));
     steps.forEach(s => FX.after(n * 2 * st0 + M.deal.fly, () => { qnFx(s); snd('mult'); }));
     return n * 2 * st0 + M.deal.fly + (steps.length ? 0.5 : 0.15);
   }
@@ -325,7 +325,7 @@
   function drawTip(ctx) {
     const i = tipPin != null ? tipPin : tipHover; if (i == null || !run.qn[i]) return;
     const q = D.QUY_NHAN[run.qn[i].id], G = Game(), w = Math.min(K.tipW, G.w - 16), sz = K.tipSize, lh = sz + 4;
-    const d = wrap(q.desc, sz, w - 16), qu = wrap('“' + q.quote + '”', sz, w - 16), h = 12 + 18 + (d.length + qu.length) * lh + 8, b = r.qnSlot[i];
+    const d = wrap(q.desc, sz, w - 16), qu = q.quote ? wrap('“' + q.quote + '”', sz, w - 16) : [], h = 12 + 18 + (d.length + qu.length) * lh + 8, b = r.qnSlot[i];
     const x = Math.max(8, Math.min(G.w - w - 8, b.x + b.w / 2 - w / 2)), y = Math.min(G.h - h - 8, b.y + b.h + 20);
     A.panel(ctx, { x: x, y: y, w: w, h: h }, { fill: PAL.denSon, border: PAL.vangKim });
     A.text(ctx, q.name, x + 8, y + 6, { size: 15, color: PAL.vangKim });

@@ -1,6 +1,6 @@
 /* tests/sim.js  node tests/sim.js [runs=300] [seed=1] : full runs, TL.AI level 3 as player, simple shop policy. Prints one compact table. */
 const path = require('path'); const J = f => require(path.join(__dirname, '..', 'js', f));
-['config', 'data', 'cards', 'rules', 'ai', 'scoring', 'run'].forEach(J);
+['config', 'data', 'content', 'cards', 'rules', 'ai', 'scoring', 'run'].forEach(J);
 const TL = globalThis.TL, R = TL.Rules, Run = TL.Run, Sc = TL.Scoring, CFG = TL.CFG;
 const RUNS = +process.argv[2] || 300, SEED = +process.argv[3] || 1;
 const QN_PRIO = ['ong_do', 'ba_ban_xoi', 'heo_dat', 'thang_ban_than', 'dan_cho_lon', 'chu_xe_om', 'thay_boi', 'co_hang_xom'];
