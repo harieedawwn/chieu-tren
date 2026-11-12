@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chiếu Trên · art2 demo (4×)</title>
+<style>
+  body { margin: 0; padding: 20px 24px 40px; background: #1B1412; color: #EADCC0; font: 14px/1.4 "Segoe UI", Roboto, Arial, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 22px; color: #D9A441; }
+  h2 { margin: 24px 0 10px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #D9A441; border-bottom: 1px solid #4A2418; padding-bottom: 4px; }
+  p { margin: 0 0 6px; color: #b9a98a; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  figure { margin: 0; text-align: center; font-size: 11px; color: #8d7d63; }
+  figure canvas { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>Chiếu Trên — art2 (nội dung mới)</h1>
+<p>Từ <code>js/art2.js</code>: cùng bảng màu, khung và cỡ với <code>js/art.js</code>. Hiện 4× (pixelated). Hàng đầu là hình cũ để so.</p>
+<h2>Quý nhân cũ (8) so với 12 mới</h2><div class="row" id="old"></div><div class="row" id="qn" style="margin-top:12px"></div>
+<h2>Đối thủ cũ (3 bàn trùm) và 3 bàn trùm mới</h2><div class="row" id="opp"></div>
+<h2>Sao (để so với Quẻ) · 6 Quẻ · Bao lì xì (kín, xé)</h2><div class="row" id="que"></div>
+<h2>Cỡ thật 1× và 2×</h2><div class="row" id="small"></div>
+<script src="../js/config.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/content.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/art2.js"></script>
+<script>
+(function () {
+  const A = TL.Art;
+  function put(parent, cv, label, s) {
+    const f = document.createElement('figure'), c = document.createElement('canvas');
+    c.width = cv.width; c.height = cv.height; c.style.width = cv.width * s + 'px'; c.style.height = cv.height * s + 'px';
+    const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(cv, 0, 0);
+    f.appendChild(c); if (label) { const t = document.createElement('div'); t.textContent = label; f.appendChild(t); }
+    parent.appendChild(f);
+  }
+  A.init().then(function () {
+    const D = TL.DATA, S = 4;
+    A._ids.qn.forEach(id => put(document.getElementById('old'), A.quyNhan(id), D.QUY_NHAN[id].name, S));
+    A._ids2.qn.forEach(id => put(document.getElementById('qn'), A.quyNhan(id), D.QUY_NHAN[id].name, S));
+    ['ba_noi', 'chu_ba', 'ong_sau'].concat(A._ids2.opp).forEach(id => put(document.getElementById('opp'), A.portrait(id), D.HOUSE_RULES[id].name, S));
+    put(document.getElementById('que'), A.sao('thai_duong'), 'Sao (cũ)', S);
+    A._ids2.que.forEach(id => put(document.getElementById('que'), A.que(id), D.QUE[id].name, S));
+    put(document.getElementById('que'), A.pack(false), 'Bao lì xì', S); put(document.getElementById('que'), A.pack(true), 'Đã xé', S);
+    const sm = document.getElementById('small');
+    A._ids2.qn.slice(0, 4).concat(['che']).slice(0, 4).forEach(id => { put(sm, A.quyNhan(id), '', 1); put(sm, A.quyNhan(id), '', 2); });
+    A._ids2.que.slice(0, 3).forEach(id => { put(sm, A.que(id), '', 1); put(sm, A.que(id), '', 2); });
+    document.body.setAttribute('data-ready', '1');
+  });
+})();
+</script>
+</body>
+</html>

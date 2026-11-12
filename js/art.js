@@ -910,6 +910,7 @@
   TL.Art = {
     W: 48, H: 64, PAL: PALN,
     _grids: GRIDS, _chars: '.KNRGBPLXY', _Buf: Buf, _ids: { qn: QN_IDS, sao: SAO_IDS, opp: Object.keys(OPP), icons: ICONS },
+    _kit: { Buf: Buf, fig: fig, body: body, eyes: eyes, mouth: mouth, hand: hand, dither: dither, backdrop: backdrop, clipCorners: clipCorners, qnFrame: qnFrame },   // shared with art2.js
     init: function () { return loadFont().then(function () { initAll(); return true; }); },
     card: function (id) { return memo('c' + id, function () { return buildCard(id); }); },
     back: function () { return memo('back', buildBack); },
