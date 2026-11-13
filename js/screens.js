@@ -94,7 +94,7 @@
       cards.forEach((s, i) => { s.deal({ x: L.zone.x + L.zone.w / 2, y: g.h + 90 }, 0.15 + i * 0.09, A.card(47 + i)); });
       FX.after(0.25, () => snd('shuffle'));
     }
-    const newGame = () => { if (TL.Trans && TL.Screens.modes) TL.Trans.go('modes'); else { const g = G(); g.run = TL.Run.create(newSeed()); g.setScreen('table'); } };
+    const newGame = () => { if (TL.Luat && TL.Luat.invite()) { TL.Luat.open(() => newGame()); return; } if (TL.Trans && TL.Screens.modes) TL.Trans.go('modes'); else { const g = G(); g.run = TL.Run.create(newSeed()); g.setScreen('table'); } };
     function cont() {
       const g = G(), r = readSave();
       if (!r) { save = null; key = ''; return; }
@@ -490,17 +490,17 @@
       if (k === key) return; key = k;
       const X0 = sf.l + 8, X1 = w - sf.r - 8, Y0 = sf.t + 8, Y1 = h - sf.b - 8, two = h < 480 && w > 560, u = clamp(Math.round(Math.min(w, h) / 30), 14, 20);
       const pw = Math.min(X1 - X0, two ? 740 : 420), rowH = two ? 50 : 56, bh = two ? 44 : 50, titleH = two ? 46 : 52, pad = 16, cols = two ? 2 : 1;
-      const rowsN = two ? 6 : 10, ph = titleH + rowsN * rowH + pad;
+      const rowsN = two ? 6 : 11, ph = titleH + rowsN * rowH + pad;
       const px = Math.round((X0 + X1) / 2 - pw / 2), py = Math.round(Math.max(Y0, (Y0 + Y1) / 2 - ph / 2)), cw = (pw - pad * 2 - (two ? 16 : 0)) / cols;
       const cell = (i) => ({ x: px + pad + (i % cols) * (cw + 16), y: py + titleH + Math.floor(i / cols) * rowH, w: cw });
       L = { panel: { x: px, y: py, w: pw, h: ph }, u: u, cells: [], bh: bh };
       const home = g.name !== 'title';
-      const defs = ['sound', 'speed', 'scan', 'red', 'full', 'inst', 'tut', 'sort', 'perf'];
+      const defs = ['sound', 'speed', 'scan', 'red', 'full', 'inst', 'tut', 'luat', 'sort', 'perf'];
 
       defs.forEach((id, i) => {
         const c = cell(i); L.cells.push({ id: id, c: c });
       });
-      const f1 = cell(9), f2 = two ? cell(10) : null, tutC = cell(6);
+      const f1 = cell(defs.length), f2 = two ? cell(defs.length + 1) : null, tutC = cell(6), luatC = cell(7);
       L.foot = two ? [{ id: 'home', r: { x: f1.x, y: f1.y, w: cw, h: bh } }, { id: 'close', r: { x: f2.x, y: f2.y, w: cw, h: bh } }]
         : (() => { const half = (cw - 10) / 2; return [{ id: 'home', r: { x: f1.x, y: f1.y, w: half, h: bh } }, { id: 'close', r: { x: f1.x + half + 10, y: f1.y, w: half, h: bh } }]; })();
       L.home = home;
@@ -521,6 +521,8 @@
         } else if (o.id === 'perf') {   // Hiệu năng: Tự động / Cao / Tiết kiệm
           const sw = Math.min(88, (cw - 96) / 3);
           [['auto', T.settings.perfAuto], ['high', T.settings.perfHigh], ['low', T.settings.perfLow]].forEach((q, j) => list.push({ id: 'perf' + q[0], label: q[1], r: { x: Math.round(c.x + cw - 3 * sw + j * sw), y: Math.round(c.y), w: Math.round(sw - 4), h: bh }, sel: st.perf === q[0], still: true }));
+        } else if (o.id === 'luat') {
+          list.push({ id: 'luat', label: T.settings.luatGo, r: { x: Math.round(luatC.x + cw - 110), y: Math.round(luatC.y), w: 110, h: bh }, still: false });
         } else if (o.id === 'tut') {
           list.push({ id: 'tut', label: T.settings.tutGo, r: { x: Math.round(tutC.x + cw - 110), y: Math.round(tutC.y), w: 110, h: bh }, still: false });
         } else {
@@ -543,6 +545,7 @@
       else if (id.indexOf('sort') === 0) st.sort = id.slice(4);
       else if (id.indexOf('perf') === 0) st.perf = id.slice(4);
       else if (id === 'tut') { const g = G(); g.run = TL.Run.create(newSeed()); if (TL.Tutorial) TL.Tutorial.restart(g.run); g.setScreen('table'); return; }
+      else if (id === 'luat') { snd('select'); G().setScreen('luat', { from: 'settings' }); return; }
       else if (id === 'home') { G().setScreen('title'); return; }
       else if (id === 'close') { G().setScreen('back'); return; }
       apply(); key = ''; snd('select');
@@ -553,9 +556,9 @@
       ctx.save(); ctx.globalAlpha = 0.72; ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, g.w, g.h); ctx.restore();
       A.panel(ctx, L.panel, { fill: PAL.nauCanhGian, border: PAL.vangKim, radius: 6 });
       txt(ctx, T.settings.title, L.panel.x + L.panel.w / 2, L.panel.y + 10, 28, PAL.vangKim, 'center');
-      const lab = { sound: T.settings.sound, speed: T.settings.speed, scan: T.settings.scanlines, red: T.settings.reduced, full: T.settings.full, inst: T.settings.inst, tut: T.settings.tut, sort: T.settings.sort, perf: T.settings.perf };
+      const lab = { sound: T.settings.sound, speed: T.settings.speed, scan: T.settings.scanlines, red: T.settings.reduced, full: T.settings.full, inst: T.settings.inst, tut: T.settings.tut, luat: T.settings.luat, sort: T.settings.sort, perf: T.settings.perf };
       L.cells.forEach(o => {
-        const s = fit(lab[o.id], L.u + 2, o.c.w - (o.id === 'speed' ? 3 * 60 : o.id === 'sort' ? 232 : o.id === 'perf' ? 250 : o.id === 'tut' ? 110 : o.note ? 0 : 96) - 12, 10);
+        const s = fit(lab[o.id], L.u + 2, o.c.w - (o.id === 'speed' ? 3 * 60 : o.id === 'sort' ? 232 : o.id === 'perf' ? 250 : (o.id === 'tut' || o.id === 'luat') ? 110 : o.note ? 0 : 96) - 12, 10);
         if (o.note) {   // no button here: label with a short note under it
           txt(ctx, lab[o.id], o.c.x, o.c.y + 2, s, PAL.giayDo, 'left');
           const ns = fit(o.note, 12, o.c.w - 4, 9); txt(ctx, o.note, o.c.x, o.c.y + 2 + s * 1.2 + 2, ns, PAL.vangKim, 'left');

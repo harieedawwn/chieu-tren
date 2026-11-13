@@ -17,6 +17,7 @@ Path (purpose) · owner job. Only the owner edits a file; BALANCE may change num
 - js/content.js (extra Quý nhân, Quẻ, Bao lì xì, luật nhà, TEXT), js/art2.js (art for them), js/shop.js (Chợ Tết screen), js/collection.js (Sổ tay, title/end wrappers) · see §12
 - js/tutorial.js (Ông Táo guided ván, Chợ Tết tour, boss tip) · TUTORIAL
 - js/screens.js (Screens.title, shop incl. payout, end, settings) · SCREENS
+- js/luat.js ("Luật bài" guide overlay, 9 pages; opened from Cài đặt and offered once before the first ván) · SCREENS
 
 ## 3 Modules and API
 Classic scripts, no ES modules, no bundler; opens by double-click on file:// and on GitHub Pages. Every file: `(function (TL) { ... })(globalThis.TL = globalThis.TL || {});`. Logic files (config data cards rules ai scoring run) touch no DOM and load in Node via require(). Every file starts with an API header comment ≤ 20 lines, one line per public function; integrators read only that. Script order in index.html: config, data, cards, rules, ai, scoring, run, art, fx, sprite, bg, audio, hud, scene, tutorial, screens, main. Two canvases: `#bg` (BG) under `#game` (transparent, everything else).

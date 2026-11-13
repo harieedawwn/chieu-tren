@@ -91,9 +91,9 @@
   }
   Game.setScreen = function (name, args) {
     if (name === 'back') { if (Game.overlay) { try { Game.overlay.exit && Game.overlay.exit(); } catch (e) { fatal(e); } Game.overlay = null; } return; }
-    if (name === 'settings') {
-      if (Game.overlay) return;
-      const s = (TL.Screens || {}).settings; if (!s) return;
+    if (name === 'settings' || name === 'luat') {   // overlays over the paused screen; luat may replace settings
+      const s = (TL.Screens || {})[name]; if (!s || Game.overlay === s) return;
+      if (Game.overlay) { try { Game.overlay.exit && Game.overlay.exit(); } catch (e) { fatal(e); } }
       Game.overlay = s; s.enter && s.enter(args); return;
     }
     if (Game.overlay) Game.overlay = null;

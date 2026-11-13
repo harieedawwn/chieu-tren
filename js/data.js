@@ -141,7 +141,7 @@
     menu: { title: 'Menu', resume: 'Tiếp tục', settings: 'Cài đặt', quit: 'Về màn đầu' },
     settings: {
       title: 'Cài đặt', sound: 'Âm thanh', speed: 'Tốc độ', scanlines: 'Scanlines',
-      sort: 'Xếp bài', perf: 'Hiệu năng', perfAuto: 'Tự động', perfHigh: 'Cao', perfLow: 'Tiết kiệm', sortRank: 'Theo số', sortSuit: 'Theo chất', reduced: 'Giảm chuyển động', full: 'Toàn màn hình', fullNo: 'Thêm vào Màn hình chính để chơi toàn màn hình', fullIn: 'Đang chạy toàn màn hình.', inst: 'Cài ứng dụng', instGo: 'Cài', instIos: 'Bấm Chia sẻ rồi Thêm vào Màn hình chính.', instDone: 'Đã cài ứng dụng.', instMenu: 'Dùng menu trình duyệt để cài ứng dụng.', on: 'Bật', off: 'Tắt', close: 'Đóng', home: 'Về màn chính', tut: 'Hướng dẫn', tutGo: 'Chơi lại',
+      sort: 'Xếp bài', luat: 'Luật bài', luatGo: 'Xem', perf: 'Hiệu năng', perfAuto: 'Tự động', perfHigh: 'Cao', perfLow: 'Tiết kiệm', sortRank: 'Theo số', sortSuit: 'Theo chất', reduced: 'Giảm chuyển động', full: 'Toàn màn hình', fullNo: 'Thêm vào Màn hình chính để chơi toàn màn hình', fullIn: 'Đang chạy toàn màn hình.', inst: 'Cài ứng dụng', instGo: 'Cài', instIos: 'Bấm Chia sẻ rồi Thêm vào Màn hình chính.', instDone: 'Đã cài ứng dụng.', instMenu: 'Dùng menu trình duyệt để cài ứng dụng.', on: 'Bật', off: 'Tắt', close: 'Đóng', home: 'Về màn chính', tut: 'Hướng dẫn', tutGo: 'Chơi lại',
     },
     msg: {
       hintNone: 'Không có bài nào đè được.', illegal: 'Bài này không hợp lệ.', cantBeat: 'Chưa đủ lớn.',
