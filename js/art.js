@@ -894,11 +894,24 @@
       });
     });
   }
+  // hover: a few pixel glints travel along the top edge of the button face (no gradients, no allocation)
+  function sparkle(ctx, rect) {
+    const FXo = TL.FX; if (!FXo || FXo.reducedMotion || (FXo.quality | 0) >= 2) return;
+    const t = FXo.time, px = Math.max(2, Math.round(rect.h / 14));
+    ctx.save(); ctx.fillStyle = PALN.giayDo;
+    for (let i = 0; i < 3; i++) {
+      const u = (t * 0.9 + i / 3) % 1, a = Math.sin(u * Math.PI), x = rect.x + 6 + u * (rect.w - 12 - px), y = rect.y + 3 + (i % 2) * (px + 1);
+      ctx.globalAlpha = a * 0.9; ctx.fillRect(Math.round(x), Math.round(y), px, px);
+      if (a > 0.6) { ctx.fillRect(Math.round(x) - px, Math.round(y), px, px); ctx.fillRect(Math.round(x) + px, Math.round(y), px, px); }
+    }
+    ctx.restore();
+  }
   function button(ctx, rect, label, state, o) {   // o.face: idle face colour (default đỏ son)
     state = state || 'idle';
     const depth = 4, press = Math.min(CFG.MOTION.button.press, depth - 1);
     const face = state === 'hover' ? PALN.vangKim : state === 'disabled' ? PALN.nauCanhGian : (o && o.face) || PALN.doSon;
     const faceH = rect.h - depth, dy = state === 'down' ? press : state === 'hover' ? 0 : 1;
+    if (state === 'hover') sparkle(ctx, rect);
     dev(ctx, function (s, q) {
       const x = q(rect.x), y = q(rect.y), w = q(rect.w), fh = q(faceH), d = q(depth), r = q(4), f = q(2);
       const qd = q(dy);

@@ -1,5 +1,5 @@
 /* js/trans.js  (owner SCREENS) shared screen transitions. Needs config, art, fx. No logic state outside the transition itself.
- * API  TL.Trans.go(name, args?, kind?)  kind 'lac' (lacquer dither sweep, default) | 'bai' (card backs fly over the screen, then away) | 'an' (boss seal: dark fade + stamp ring)
+ * API  TL.Trans.go(name, args?, kind?)  kind 'chieu' (woven mat: horizontal and vertical straw strips interlace over the screen, then unweave; default) | 'lac' (lacquer dither sweep) | 'bai' (card backs fly over the screen, then away) | 'an' (boss seal: dark fade + stamp ring)
  *      TL.Trans.busy() -> bool (input is ignored while true)   TL.Trans.update(dt)   TL.Trans.draw(ctx)
  * Time CFG.TRANS.cover + CFG.TRANS.reveal (350-700 ms total), easing outExpo (cover) and outBack (cards); the screen switches when the cover is full.
  * ?auto and reducedMotion: no sweep, plain fast fade (reducedMotion) or immediate switch (?auto).
@@ -18,7 +18,7 @@
     if (st) return;
     if (g.flags.auto || !g.ctx) { g.setScreen(name, args); return; }
     const red = !!(g.settings && g.settings.reducedMotion);
-    st = { name: name, args: args, kind: red ? 'fade' : (kind || 'lac'), t: 0, done: false, cover: red ? CFG.TRANS.reduced : CFG.TRANS.cover, reveal: red ? CFG.TRANS.reduced : CFG.TRANS.reveal };
+    st = { name: name, args: args, kind: red ? 'fade' : (kind || 'chieu'), t: 0, done: false, cover: red ? CFG.TRANS.reduced : CFG.TRANS.cover, reveal: red ? CFG.TRANS.reduced : CFG.TRANS.reveal };
     try { TL.Audio && TL.Audio.play(st.kind === 'bai' ? 'shuffle' : 'button', { vol: 0.5 }); } catch (e) {}
   }
   function update(dt) {
@@ -46,6 +46,24 @@
         const x = Math.round(c * (cw - 8) + (covering ? ox : -ox)), y = r * ch - 10;
         if (back) ctx.drawImage(back, x, y, cw, ch); else { ctx.fillStyle = PAL.doSon; ctx.fillRect(x, y, cw - 2, ch - 2); }
       }
+    } else if (k === 'chieu') {   // chiếu cói: rows slide in from the left, columns drop from the top, alternating over/under
+      const rh = Math.max(26, Math.min(64, Math.round(Math.min(w, h) / 10))), n = Math.ceil(h / rh), cw = rh;
+      const nc = Math.ceil(w / cw), straw = [PAL.vangKim, PAL.nauCanhGian, PAL.doSon];
+      const seg = (a, b, vert, i, over) => {   // draw one strip with a woven over/under notch pattern
+        if (b - a <= 0) return;
+        ctx.fillStyle = straw[(i + (vert ? 1 : 0)) % 3];
+        if (vert) ctx.fillRect(i * cw, a, cw - 1, b - a); else ctx.fillRect(a, i * rh, b - a, rh - 1);
+        ctx.fillStyle = PAL.denSon; if (vert) ctx.fillRect(i * cw, a, 2, b - a); else ctx.fillRect(a, i * rh, b - a, 2);
+      };
+      const pr = p, qh = i => outExpo(clamp((pr - (i / n) * 0.35) / 0.6, 0, 1)), qv = i => outExpo(clamp((pr - 0.12 - (i / nc) * 0.3) / 0.6, 0, 1));
+      for (let i = 0; i < n; i++) seg(0, Math.round(w * qh(i)), false, i);
+      for (let i = 0; i < nc; i++) {
+        const hh = Math.round(h * qv(i)); if (hh <= 0) continue;
+        // weave: the column passes over every other row band, under the rest (rows are redrawn on top of the column there)
+        seg(0, hh, true, i);
+        for (let r = 0; r < n; r++) if ((r + i) % 2 === 0) { const x1 = Math.round(w * qh(r)); const cx = i * cw; if (x1 > cx) { ctx.fillStyle = straw[(r) % 3]; ctx.fillRect(cx, r * rh, Math.min(cw - 1, x1 - cx), Math.min(rh - 1, Math.max(0, hh - r * rh))); } }
+      }
+      if (pr > 0.98) { ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, w, h); }
     } else {   // 'lac': lacquer columns with a dithered leading edge
       const n = CFG.TRANS.cols, cw = Math.ceil(w / n);
       for (let c = 0; c < n; c++) {

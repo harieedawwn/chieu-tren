@@ -263,6 +263,30 @@
     if (o.line !== false) inset(ctx, r, PAL.vangKim, 0.35, o.off || 5);
   }
   function icon(ctx, name, x, y, size) { return blit(ctx, A().icon(name), x, y, size, size, 'left'); }
+  // odometer: digits that change roll upward (old out, new in) inside a clipped band; state per key, no allocation per frame
+  const ODO = {};
+  function odoTxt(ctx, key, str, x, cy, size, o) {
+    o = o || {}; str = String(str);
+    const e = ODO[key] || (ODO[key] = { s: str, p: str, t: 9 });
+    const FXo = TL.FX, off = !FXo || FXo.reducedMotion || (TL.Game && TL.Game.flags.auto);
+    if (e.s !== str) { e.p = off ? str : e.s; e.s = str; e.t = 0; }
+    if (e.t < 1) e.t += (TL.Game ? 1 / 60 : 0.016) / 0.28 * (FXo && FXo.speed > 0 ? FXo.speed : 1);
+    if (off || e.t >= 1 || e.p === e.s) return txt(ctx, str, x, cy, size, o);
+    const sz = Math.max(o.min || 10, Math.round(size * (o.raw ? 1 : UI))), n = str.length, prev = e.p.padStart(n, ' ').slice(-n);
+    let tw = A().textWidth(str, sz), sc = 1; if (o.maxW && tw > o.maxW) { sc = o.maxW / tw; }
+    const q = 1 - Math.pow(1 - Math.min(1, e.t), 3), x0 = o.align === 'right' ? x - tw * sc : o.align === 'left' ? x : x - tw * sc / 2, band = sz * 1.1;
+    ctx.save(); ctx.beginPath(); ctx.rect(x0 - 4, cy - band / 2, tw * sc + 8, band); ctx.clip();
+    let cx = x0;
+    for (let i = 0; i < n; i++) {
+      const c = str[i], w = (A().textWidth(str.slice(0, i + 1), sz) - A().textWidth(str.slice(0, i), sz)) * sc, op = Object.assign({}, o, { align: 'left', maxW: 0 });
+      if (c !== prev[i] && c !== ' ' && c !== '.' && c !== ',') {
+        if (prev[i] !== ' ') txt(ctx, prev[i], cx, cy - q * band, size * sc, Object.assign({}, op, { alpha: 1 - q }));
+        txt(ctx, c, cx, cy + (1 - q) * band, size * sc, op);
+      } else txt(ctx, c, cx, cy, size * sc, op);
+      cx += w;
+    }
+    ctx.restore(); return tw * sc;
+  }
   const juiced = (vm, k) => (TL.FX && vm.j && vm.j[k] ? TL.FX.juiceOf(vm.j[k]).s : 1);
   function scoreBox(ctx, r, label, value, fill, empty, js) {
     A().panel(ctx, r, { fill: fill, border: PAL.denSon, shadow: PAL.denSon, radius: 5 });
@@ -271,7 +295,7 @@
     txt(ctx, label, r.x + r.w / 2, r.y + r.h * 0.26, ls, { align: 'center', alpha: 0.9, maxW: r.w - 8, raw: true });
     const vs = clamp(r.h * 0.46, 14, 64);
     if (empty) txt(ctx, '–', r.x + r.w / 2, r.y + r.h * 0.67, vs, { align: 'center', alpha: 0.4, shadow: false, outline: false, raw: true });
-    else txt(ctx, TL.fmt(value), r.x + r.w / 2, r.y + r.h * 0.67, vs * (js || 1), { align: 'center', maxW: r.w - 10, min: 12, raw: true });
+    else odoTxt(ctx, 'sb' + label, TL.fmt(value), r.x + r.w / 2, r.y + r.h * 0.67, vs * (js || 1), { align: 'center', maxW: r.w - 10, min: 12, raw: true });
   }
   function bar(ctx, r, frac) {
     fillR(ctx, PAL.denSon, r.x, r.y, r.w, r.h);
@@ -302,7 +326,7 @@
     const p = r.pot;
     lacquer(ctx, p, PAL.nauCanhGian, { off: 4, radius: 5 });
     txt(ctx, TX.hud.pot, p.x + p.w / 2, p.y + p.h * 0.27, clamp(p.h * 0.24, 10, 22), { align: 'center', alpha: 0.9, maxW: p.w - 10, raw: true });
-    txt(ctx, TL.fmt(vm.pot || 0), p.x + p.w / 2, p.y + p.h * 0.67, clamp(p.h * 0.42, 14, 48) * juiced(vm, 'pot'), { align: 'center', color: PAL.vangKim, maxW: p.w - 12, min: 12, raw: true });
+    odoTxt(ctx, 'pot', TL.fmt(vm.pot || 0), p.x + p.w / 2, p.y + p.h * 0.67, clamp(p.h * 0.42, 14, 48) * juiced(vm, 'pot'), { align: 'center', color: PAL.vangKim, maxW: p.w - 12, min: 12, raw: true });
     // turn ribbon: only once the cards are dealt
     if (vm.live) {
       const mine = vm.turn === 0, seat = (vm.seatInfo || []).filter(q => q.seat === vm.turn)[0], who = (seat && seat.name) || vm.oppName, label = mine ? TX.hud.yourTurn : (who ? who : TX.hud.oppTurn), sz = Math.round(clamp(r.table.h * 0.07, 11, 20));
