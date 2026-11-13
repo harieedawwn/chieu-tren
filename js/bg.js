@@ -2,6 +2,7 @@
  * API  TL.BG
  *   init(canvas)       bind the #bg canvas (WebGL; falls back to a static dithered 2D pattern); sets its backing store to a low-res size
  *   setMood(name)      'ban'|'boss'|'shop'|'title'; colours, band areas and speed ease over ~1 s
+ *   setKhi(lv)         Khi the 0..3: multiplies flow speed by CFG.KHI.bg[lv]; setMood also takes CFG.MOODS names (ba_noi chu_ba ong_sau co_hai bac_chin di_ut giao_thua daily vo_tan)
  *   pulse(a)           briefly speed the flow up (a = 0..1, scaled by CFG.MOTION.bg.pulse, decays by CFG.MOTION.bg.decay per s)
  *   crt(on)            toggle the scanline overlay (own fixed div, thin dark line every 3 device px, no curvature/vignette)
  *   render(t)          draw one frame; t = seconds (any clock); reads canvas CSS size each call; does nothing while the tab is hidden
@@ -23,12 +24,15 @@
   // bands dark -> light. thr = [dark/mid edge, mid/light edge] on the 0..1 noise (light band is the smallest area). speed = flow multiplier.
   function moods() {
     var den = P('denSon'), nau = P('nauCanhGian'), red = P('doSon');
-    return {
+    var m = {
       ban:   { c: [den, nau, mix(red, nau, 0.3)],                thr: [0.48, 0.80], speed: 1.0 },
       boss:  { c: [den, mix(red, den, 0.55), mix(red, den, 0.2)], thr: [0.40, 0.76], speed: 1.7 },
       shop:  { c: [den, nau, mix(P('menLam'), nau, 0.3)],        thr: [0.48, 0.80], speed: 1.0 },
       title: { c: [den, nau, mix(P('vangKim'), nau, 0.45)],         thr: [0.52, 0.86], speed: 0.9 }
     };
+    var MO = cfg().MOODS || {};   // special palettes (CFG.MOODS, hex colours): ba_noi chu_ba ong_sau co_hai bac_chin di_ut giao_thua daily vo_tan
+    Object.keys(MO).forEach(function (k) { m[k] = { c: MO[k].c.map(hex), thr: MO[k].thr.slice(), speed: MO[k].speed }; });
+    return m;
   }
 
   var VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
@@ -58,7 +62,7 @@
 
   var S = {
     canvas: null, gl: null, prog: null, loc: null, buf: null, ctx2d: null, mode: 'none',
-    mood: 'ban', cur: null, from: null, to: null, ease: 1,
+    mood: 'ban', khiMul: 1, cur: null, from: null, to: null, ease: 1,
     phase: 0, lastT: null, boost: 0, lowW: 0, lowH: 0, cssW: 0, cssH: 0, dpr: 0,
     field: null, dirty: true, crtOn: false, crtEl: null, lost: false
   };
@@ -126,6 +130,8 @@
     S.mood = name; S.ease = 0; S.dirty = true;
   }
 
+  function setKhi(lv) { var t = (cfg().KHI || {}).bg; S.khiMul = t ? t[Math.max(0, Math.min(t.length - 1, lv | 0))] : 1; }
+
   function pulse(a) {
     var m = (cfg().MOTION || {}).bg || { pulse: 2.5 };
     var v = Math.max(0, +a || 0) * m.pulse;
@@ -192,7 +198,7 @@
     }
     S.boost *= Math.exp(-(m.decay || 1.8) * dt);
     if (S.boost < 0.001) S.boost = 0;
-    S.phase += dt * (m.base == null ? 1 : m.base) * S.cur.speed * (1 + S.boost);
+    S.phase += dt * (m.base == null ? 1 : m.base) * S.cur.speed * (1 + S.boost) * S.khiMul;
 
     if (S.mode === 'gl') {
       if (S.lost || S.gl.isContextLost()) return;
@@ -237,5 +243,5 @@
     S.crtEl.style.display = S.crtOn ? 'block' : 'none';
   }
 
-  TL.BG = { init: init, setMood: setMood, pulse: pulse, crt: crt, render: render };
+  TL.BG = { init: init, setMood: setMood, setKhi: setKhi, pulse: pulse, crt: crt, render: render };
 })(globalThis.TL = globalThis.TL || {});

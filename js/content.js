@@ -135,6 +135,36 @@
     AURA: ['#6B2F7A', '#A066B0'],   // aura fire colours (the only purple in the game)
     CA_CHEP_X: 1.2,        // Cá Chép: Nhân multiplier gained per hũ won with a sảnh, compounding forever
   };
+  CFG.KHI = {
+    MAX: 3,
+    FAST_MIN: 0.5, FAST_MAX: 2.2,   // s from your turn to Đánh that count as a confident quick play
+    WIN_P: 0.6,                     // estimated win chance needed for a quick play to count
+    OPP_MOVES_PER_CARD: 0.55, CTL_W: 0.5, P_PER_MOVE: 0.1,   // winProb: 0.5 + P_PER_MOVE x (opp moves left - my groups + control)
+    popup: [1, 1.2, 1.4, 1.6],      // popup size multiplier by level
+    shake: [1, 1.33, 1.67, 2],      // shake multiplier by level
+    SHAKE_CAP: 10,                  // hard cap, px
+    tick: [1, 1.05, 1.1, 1.16],     // tick pitch multiplier by level
+    drum: [0, 0.35, 0.55, 0.8],     // bass drum layer under each tick, volume
+    pao: [0, 0, 0.6, 1],            // firework tail after a slam, volume
+    bg: [1, 1.25, 1.55, 2],         // background flow speed multiplier
+    border: ['#D9A441', '#D9A441', '#C9602B', '#A3271F'],   // HUD edge: vàng kim -> đỏ son
+    FLAME_AT: 3,                    // level at which the Điểm × Nhân box burns
+  };
+  CFG.FINALE = {
+    HIT_STOP: 0.12, SLOW: 0.35, SLOW_FOR: 0.7, ZOOM: 1.08, FLASH: 0.18, RINGS: 3, HOLD: 1.1,
+    BASE_FRAC: 0.4,                 // intensity = BASE_FRAC + (1 - BASE_FRAC) x ((khi + oppLeft/HAND_SIZE) / (MAX + 1)), 0..1
+  };
+  CFG.MOODS = {   // background bands dark -> light (hex), thr, speed
+    ba_noi:    { c: ['#16222F', '#2E5E8C', '#EADCC0'], thr: [0.50, 0.84], speed: 1.0 },
+    chu_ba:    { c: ['#0E0A0A', '#5A1410', '#A3271F'], thr: [0.44, 0.80], speed: 1.5 },
+    ong_sau:   { c: ['#16200F', '#2F4020', '#5B7040'], thr: [0.48, 0.80], speed: 1.0 },
+    co_hai:    { c: ['#2A1218', '#6E2B3C', '#D98CA0'], thr: [0.48, 0.82], speed: 1.1 },
+    bac_chin:  { c: ['#2A1E0C', '#6B5020', '#C7A24A'], thr: [0.48, 0.80], speed: 1.2 },
+    di_ut:     { c: ['#0F1530', '#24305E', '#4A5A9A'], thr: [0.46, 0.80], speed: 1.4 },
+    giao_thua: { c: ['#0A0807', '#2A1E0C', '#D9A441'], thr: [0.56, 0.90], speed: 0.8 },
+    daily:     { c: ['#1B1412', '#2F4020', '#5B7040'], thr: [0.48, 0.80], speed: 1.0 },
+    vo_tan:    { c: ['#0F1530', '#1A1F44', '#2E3A7A'], thr: [0.46, 0.80], speed: 1.3 },
+  };
   CFG.PRICE.QN4 = { ong_thay_tuong: 6, co_ba_sai_gon: 7, chu_ban_pho: 6, anh_bo_doi: 5, ba_ngoai: 5, cau_ut: 7, chi_hang_ca: 4, ong_giao: 6 };
   CFG.PRICE.BAU = { than_tai: 14, ong_dia: 12, tao_quan: 13, vua_bai: 15, ca_chep: 12 };
   Object.assign(CFG.PRICE.QN, CFG.PRICE.QN4, CFG.PRICE.BAU);

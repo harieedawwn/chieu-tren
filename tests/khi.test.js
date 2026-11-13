@@ -1,0 +1,33 @@
+/* tests/khi.test.js  node tests/khi.test.js : Khi the (momentum) logic, CFG.KHI/FINALE/MOODS shape. Prints only failures and one summary line */
+const path = require('path'); const J = f => require(path.join(__dirname, '..', 'js', f));
+['config', 'data', 'content', 'cards', 'rules', 'ai', 'khi'].forEach(J);
+const TL = globalThis.TL, K = TL.Khi, CFG = TL.CFG;
+let n = 0, bad = 0;
+const ok = (c, m) => { n++; if (!c) { bad++; console.log('FAIL: ' + m); } };
+const k = K.make();
+ok(k.lv === 0, 'starts at 0');
+ok(K.lose(k) === false && k.lv === 0, 'no negative');
+ok(K.onVong(k, 0) && k.lv === 1, 'win hu +1');
+ok(K.onChat(k, 0) && k.lv === 2, 'player chat +1');
+ok(K.onChat(k, 1) === false && k.lv === 2, 'opponent chat no change');
+ok(K.fast(k, 0.3, 0.9) === false, 'too fast does not count');
+ok(K.fast(k, 3, 0.9) === false, 'too slow does not count');
+ok(K.fast(k, 1, 0.5) === false, 'low confidence does not count');
+ok(K.fast(k, 1, 0.7) && k.lv === 3, 'confident quick play +1');
+ok(K.fast(k, 1, 0.9) === false && k.lv === 3, 'capped at MAX');
+ok(K.onVong(k, 1) && k.lv === 2, 'opponent hu -1');
+ok(K.onVong(k, 1) && K.onVong(k, 1) && k.lv === 0 && !K.onVong(k, 1), 'floor at 0');
+['popup', 'shake', 'tick', 'drum', 'pao', 'bg', 'border'].forEach(t => ok(CFG.KHI[t].length === CFG.KHI.MAX + 1, 'table ' + t));
+ok(CFG.KHI.popup[0] === 1 && CFG.KHI.popup[3] === 1.6 && CFG.KHI.shake[3] === 2 && CFG.KHI.SHAKE_CAP === 10, 'D5 numbers');
+ok(CFG.KHI.FAST_MIN === 0.5 && CFG.KHI.FAST_MAX === 2.2 && CFG.KHI.WIN_P === 0.6, 'D5 timing');
+ok(CFG.FINALE.HIT_STOP === 0.12 && CFG.FINALE.SLOW === 0.35 && CFG.FINALE.SLOW_FOR === 0.7 && CFG.FINALE.ZOOM === 1.08, 'finale numbers');
+['ba_noi', 'chu_ba', 'ong_sau', 'co_hai', 'bac_chin', 'di_ut', 'giao_thua', 'daily', 'vo_tan'].forEach(m => ok(CFG.MOODS[m] && CFG.MOODS[m].c.length === 3, 'mood ' + m));
+// winProb: an easy hand vs a full opponent beats a bad hand vs an almost-empty opponent
+const RK = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+const ids = s => s.split(' ').map(x => RK.indexOf(x.slice(0, -1)) * 4 + 'scdh'.indexOf(x.slice(-1)));
+const good = ids('3s 3c 4s 4c 5s 5c 9d 9h 2s 2c'), badH = ids('3s 5c 7d 9h Js Qc Ad 4h 6s 8c');
+ok(K.winProb(good, 10) > CFG.KHI.WIN_P, 'strong hand vs full opponent >= WIN_P');
+ok(K.winProb(badH, 2) < CFG.KHI.WIN_P, 'weak hand vs nearly empty opponent < WIN_P');
+const pr = K.winProb(badH, 10); ok(pr >= 0 && pr <= 1, 'winProb in 0..1');
+console.log(bad ? bad + ' FAILED of ' + n : 'khi.test ok (' + n + ')');
+process.exit(bad ? 1 : 0);

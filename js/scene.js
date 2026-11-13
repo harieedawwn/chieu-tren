@@ -16,9 +16,10 @@
   const key = c => c.cards.join(','), ctr = b => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 }), top = b => ({ x: b.x + b.w / 2, y: b.y }), fmt = TL.fmt;
   const TU = () => (TL.Tutorial && TL.Tutorial.on() ? TL.Tutorial : null);                       // the running lesson, if any
   const gateOK = (p, t) => !TL.Tutorial || TL.Tutorial.gate(p, t), tnote = (ev, d) => { const t = TU(); if (t) t.notify(ev, d); };
-  const J = { diem: {}, the: {}, pot: {}, diemBan: {}, lixi: {}, van: {}, house: {} };   // juice holders read by the HUD (numbers swell instead of covering popups)
+  const J = { diem: {}, the: {}, pot: {}, diemBan: {}, lixi: {}, van: {}, house: {}, khi: {} };   // juice holders read by the HUD (numbers swell instead of covering popups)
 
   let run, info, st, r, lk = '', hs = 1, ts = 1, os = 1, vm, cv, shownDB, hand, opp, qnS, groups, ghost, vongPlays, ready, leg, hintList, hintIdx, sortMode, selOk, selMsg, tmsg, tmsgTok = 0;
+  let khi = TL.Khi.make(), turnT = 0, fin = null;   // Khí thế {lv}; turnT = FX.time when your turn became ready; fin = winning finale {t, skip, slow}
   let pay, tipHover, tipPin, downBtn, hovBtn, dead, rcard = null, ruleSeen = '';   // rcard: boss rule card {t, ...} while it is up
   let queS = [null, null], qr = [], qtip = null, qbtn = null, qdown = false, swapFly = [], soiOn = false;   // Quẻ: sprites, slot rects, pinned slot, Dùng button rect
 
@@ -32,6 +33,14 @@
   const selIds = () => hand.filter(s => s.selected).map(s => s.id).sort((a, b) => a - b);
   const dbPt = () => ctr(r.dbBox);
   const stampAt = (str, kind) => { const c = ctr(r.table); FX.stamp(str, kind, c.x, c.y); };
+  const KHI = () => CFG.KHI;
+  function setKhi(changed, fromLv) {   // apply the level everywhere; juice + rising drum roll when it went up
+    FX.khi = khi.lv; if (TL.BG) TL.BG.setKhi(khi.lv); vm.khi = khi.lv;
+    if (!changed) return;
+    FX.juice(J.khi, 1.2); if (khi.lv > fromLv) { snd('khi', { pitch: KHI().tick[khi.lv] }); if (TL.BG) TL.BG.pulse(0.5); }
+  }
+  function khiDo(fn) { const was = khi.lv, ch = fn(khi); setKhi(ch, was); }
+  const tickSnd = (n, i) => { const lv = khi.lv; snd(n, { pitch: FX.tickPitch(i) * KHI().tick[lv] }); if (KHI().drum[lv] > 0) snd('bass', { vol: KHI().drum[lv] }); };
   const dim = (s, a, b) => { s.scale = a; s.V.sx = s.V.sy = b / a; };       // new scale, springs in from the old size
   const canAct = () => ready && !dead && !rcard && !pay && st && !st.over && !FX.queue.busy() && !Game().flags.auto && vm.turn === 0 && !Game().overlay;
 
@@ -39,12 +48,12 @@
     const hr = info.house ? D.HOUSE_RULES[info.house] : null;
     vm = { chang: { idx: run.chang, name: info.changName }, x2: !!run.flags.x2Next, ban: { idx: run.ban, kind: info.kind, name: info.name }, target: info.target, diemBan: 0, pot: 0, combo: null, diem: 0, the: 0,
       vanLeft: info.vanLeft, vanMax: info.vanMax, lixi: run.money, oppId: info.opp, oppName: info.name, house: hr ? { name: hr.name, quote: hr.quote, short: hr.short } : null,
-      oppCount: 0, oppHeo: null, oppReveal: [], deckLeft: 52, qn: [], turn: 0, live: false, vanNo: info.vanUsed + 1, j: J, canPlay: false, canPass: false, busy: true, sortMode: sortMode, msg: null, flames: false };
+      oppCount: 0, oppHeo: null, oppReveal: [], deckLeft: 52, qn: [], turn: 0, live: false, vanNo: info.vanUsed + 1, j: J, canPlay: false, canPass: false, busy: true, sortMode: sortMode, msg: null, flames: false, khi: 0 };
   }
   function qnCopy() { return run.qn.map((q, i) => ghost[i] || (q ? { id: q.id, n: q.n } : null)); }
   function sync() {
     vm.pot = Math.round(cv.pot); vm.diemBan = Math.round(cv.diemBan); vm.lixi = Math.round(cv.lixi); vm.diem = Math.round(cv.diem); vm.the = Math.round(cv.the * 10) / 10;
-    vm.flames = !!st && cv.pot >= info.target; vm.qn = qnCopy(); vm.oppCount = opp.length; vm.sortMode = sortMode;
+    vm.flames = !!st && (cv.pot >= info.target || khi.lv >= KHI().FLAME_AT); vm.khi = khi.lv; vm.qn = qnCopy(); vm.oppCount = opp.length; vm.sortMode = sortMode;
     vm.oppHeo = S.slotOf(run, 'co_hang_xom') >= 0 ? opp.filter(s => C.isHeo(s.id)).length : null;
     vm.oppReveal = st ? (st.peek || []).filter(id => opp.some(s => s.id === id)) : [];
     vm.busy = !!FX.queue.busy() || !ready || !!pay || !st || st.over; vm.canPlay = selOk && canAct(); vm.canPass = !!(leg && leg.canPass) && canAct();
@@ -87,7 +96,7 @@
     if (!G.run) G.run = TL.Run.create(G.flags.seed != null ? G.flags.seed : undefined);
     if (G.flags.auto && G.flags.endless && !G.run.endless) { const x = G.run; x.chang = 2; x.ban = 2; x.phase = 'won'; TL.Run.continueEndless(x); }
     run = G.run; if (TL.Tutorial) TL.Tutorial.attach(run); dead = false; pay = null; rcard = null; ruleSeen = ''; sortMode = 'rank'; ghost = {}; tmsg = selMsg = null; tipHover = tipPin = null; downBtn = hovBtn = null; lk = '';
-    hand = []; opp = []; qnS = []; groups = []; st = null; ready = false; leg = null; selOk = false; vongPlays = 0;
+    hand = []; opp = []; qnS = []; groups = []; st = null; ready = false; leg = null; selOk = false; vongPlays = 0; khi = TL.Khi.make(); fin = null;
     cv = { pot: 0, diemBan: 0, diem: 0, the: 0, lixi: run.money, juiceTargets: J }; shownDB = 0; info = TL.Run.ban(run); buildVm(); FX.reset(); relayout(); buildQn(); buildQue(); swapFly = []; soiOn = false;
     if (run.phase === 'payout') return showPay();
     if (run.phase === 'shop') return leave();
@@ -99,7 +108,8 @@
   function ruleSay(m) { return info && info.rule ? info.rule.name + ': ' + m : m; }   // a message caused by the luật nhà names the rule and juices its chip
   function startBan() {
     info = TL.Run.ban(run); cv.lixi = run.money; cv.diemBan = shownDB = run.diemBan; buildVm(); buildQn(); buildQue(); sweepAll(true); st = null; ready = false; soiOn = false;
-    if (TL.BG) TL.BG.setMood(info.kind === 'trum' ? 'boss' : 'ban');
+    khi = TL.Khi.make(); fin = null; FX.timeScale = 1; FX.zoom = 1; setKhi(false, 0);
+    if (TL.BG) TL.BG.setMood(info.kind === 'trum' ? (CFG.MOODS[info.opp] ? info.opp : 'boss') : 'ban');
     if (!Game().flags.auto) saveRun();
     const card = run.vanUsed === 0 && info.kind === 'trum' && info.rule && !Game().flags.auto;   // a bàn trùm opens with the rule card instead of two stamps
     if (card) { FX.queue.add(() => { openRule(false); return 0; }, 0.2); FX.queue.wait(() => !rcard); }
@@ -136,7 +146,8 @@
     if (TU() && !TU().allowBtn(id)) { TU().nudge(); return; }
     if (id === 'danh') {
       if (!selOk) return;
-      const ids = selIds(); ready = false; const evs = RU.play(st, 0, ids); if (evs.length) process(evs); else { ready = true; say(T.msg.illegal); }
+      const ids = selIds(), think = FX.time - turnT, p = TL.Khi.winProb(hand.map(s => s.id), opp.length); ready = false; const evs = RU.play(st, 0, ids);
+      if (evs.length && !Game().flags.auto) khiDo(k => TL.Khi.fast(k, think, p)); if (evs.length) process(evs); else { ready = true; say(T.msg.illegal); }
     } else if (id === 'bo') {
       if (!leg.canPass) { if (!st.table) return; if (st.mods.passMax !== undefined && st.passes[0] >= st.mods.passMax && !st.mods.mustBeat) { say(T.msg.passMax); return; }
       if (st.mods.mustBeat && info.rule) { FX.juice(J.house, 1.2); say(ruleSay(T.msg.mustBeat)); } else say(T.msg.mustBeat); return; }
@@ -187,9 +198,10 @@
     else if (e.type === 'turn') Q.add(() => {
       vm.turn = e.seat; clearScore(); hintList = null; tmsg = null;
       if (e.seat === 1 || Game().flags.auto) schedule(e.seat);
-      else { leg = RU.legal(st, 0); ready = true; refresh(); tnote('ready'); }
+      else { leg = RU.legal(st, 0); ready = true; turnT = FX.time; refresh(); tnote('ready'); }
     }, 0);
     else if (e.type === 'play') {
+      if (e.seat === 0 && hand.length === e.combo.cards.length && !Game().flags.auto) Q.add(() => { startFinale(); return 0; }, 0);   // the last card: hit-stop, slow motion, zoom
       Q.add(() => { flyCards(e, P); return M.play.fly; }, 0);
       e.score.steps.forEach((s, i, a) => Q.add(() => step(s, i, e, P), i ? FX.stepGap(a.length) : 0.05));
       Q.add(() => slam(e.score.total, e.pot, e.score.total >= M.bigScore), 0.1);
@@ -238,7 +250,7 @@
     const a = P.a, sp = s.kind === 'card' ? P.sp[s.ref] : null, feedsThe = !!(s.xThe || (s.the && !s.diem));
     if (s.kind === 'chat') {
       const at = ctr(r.tablePlay);
-      stampAt(T.stamp.chat, 'gold'); snd('chat'); FX.confetti(at.x, at.y, M.confetti.n); FX.shake(M.shake.max * 0.6); if (TL.BG) TL.BG.pulse(0.6);
+      if (e.seat === 0) khiDo(k => TL.Khi.onChat(k, 0)); stampAt(T.stamp.chat, 'gold'); snd('chat'); FX.confetti(at.x, at.y, M.confetti.n); FX.shake(M.shake.max * 0.6); if (TL.BG) TL.BG.pulse(0.6);
       (P.target || []).forEach(t => { if (C.isHeo(t.id)) t.dissolve(M.dissolve.dur, () => {}); }); if (P.target) snd('dissolve');
       return 0.4;
     }
@@ -251,31 +263,33 @@
     else { const at = feedsThe ? top(r.theBox) : top(r.diemBox); FX.popup(s.label, at.x, at.y, s.xThe ? 'xthe' : feedsThe ? 'the' : 'diem', { center: true }); }
     a.diem += s.diem || 0; a.the += s.the || 0; if (s.xThe) a.the *= s.xThe;
     FX.counter(cv, 'diem', a.diem, M.counter.dur * 0.6); FX.counter(cv, 'the', a.the, M.counter.dur * 0.6);
-    snd(s.the || s.xThe ? 'mult' : 'tick', { pitch: FX.tickPitch(i) });
+    if (s.the || s.xThe) snd('mult', { pitch: FX.tickPitch(i) * KHI().tick[khi.lv] }); else tickSnd('tick', i);
     return 0;
   }
   function slam(total, pot, big) {
     const p = top(r.pot); FX.popup('+' + fmt(total), p.x, p.y, 'gold', { center: true }); FX.counter(cv, 'pot', pot, M.counter.dur); FX.shake(FX.shakeFor(total)); snd('stamp', { vol: 0.7 }); if (big && TL.BG) TL.BG.pulse(1);
+    if (KHI().pao[khi.lv] > 0) { snd('pao', { vol: KHI().pao[khi.lv] }); FX.confetti(p.x, p.y + 20, 8 * khi.lv); }
   }
   function vong(e, steps) {
     const w = e.winner, dest = w === 0 ? dbPt() : ctr(r.oppPlate), all = []; tnote('vong', { winner: w });
     groups.forEach(g => g.list.forEach((s, i) => { all.push(s); s.moveTo(dest.x, dest.y, 0.4, (i - 1) * 6, i * 0.03); }));
     FX.after(K.sweep, () => { all.forEach(s => { s.dead = true; }); });
-    if (w === 0) FX.popup('+' + fmt(e.pot), dest.x, dest.y, 'gold', { center: true }); else FX.popup(fmt(e.pot), top(r.oppHand).x, top(r.oppHand).y, 'bad'); snd('vong'); steps.forEach(s => { qnFx(s); });
+    if (w === 0) FX.popup('+' + fmt(e.pot), dest.x, dest.y, 'gold', { center: true }); else FX.popup(fmt(e.pot), top(r.oppHand).x, top(r.oppHand).y, 'bad'); snd('vong'); steps.forEach(s => { qnFx(s); }); khiDo(k => TL.Khi.onVong(k, w));
     if (soiOn) { soiOn = false; opp.forEach(sp => { if (st.peek.indexOf(sp.id) < 0) sp.flip(A.back(), 0); }); }
     FX.counter(cv, 'pot', 0, M.counter.dur); if (w === 0) { shownDB += e.pot; FX.counter(cv, 'diemBan', shownDB, M.counter.dur * 1.5); snd('coin'); }
     vongPlays = 0; return K.vongHold;
   }
   function vanEnd(e) {
     const Q = FX.queue, win = e.winner === 0, b = e._bonus, a = { diem: 0, the: 0 };
-    Q.add(() => { ready = false; vm.live = false; tnote('vanEnd'); snd(win ? 'venhat' : 'thua'); if (!e.toiTrang) stampAt(win ? T.stamp.veNhat : T.stamp.thua, win ? 'good' : 'bad'); return 0.7; }, 0.2);
+    Q.add(() => { ready = false; vm.live = false; tnote('vanEnd'); snd(win ? 'venhat' : 'thua'); if (win && !e.toiTrang) return finale(e); if (!e.toiTrang) stampAt(win ? T.stamp.veNhat : T.stamp.thua, win ? 'good' : 'bad'); return 0.7; }, 0.2);
+    if (win && !e.toiTrang) Q.wait(() => !fin || fin.skip || fin.t >= CFG.FINALE.HOLD);
     b.steps.forEach((s, i) => Q.add(() => {
       const tb = top(r.theBox), db = top(r.diemBox);
       if (!(win && s.ref === 'veNhat' && !e.toiTrang)) stampAt(s.label, win ? 'good' : 'bad');
       vm.combo = { name: T.stamp[win ? 'veNhat' : 'thua'], level: 1 };
       if (s.ref === 'veNhat' || s.ref === 'thoi' && s.diem != null) { a.diem = s.diem; a.the = 1; FX.popup((s.diem < 0 ? '' : '+') + s.diem, db.x, db.y, s.diem < 0 ? 'bad' : 'diem', { center: true }); }
       else { a.the = s.xThe; FX.popup('×' + Math.round(s.xThe * 10) / 10, tb.x, tb.y, 'xthe', { center: true }); }
-      FX.counter(cv, 'diem', a.diem, M.counter.dur * 0.6); FX.counter(cv, 'the', a.the, M.counter.dur * 0.6); snd(s.xThe ? 'mult' : 'tick', { pitch: FX.tickPitch(i) });
+      FX.counter(cv, 'diem', a.diem, M.counter.dur * 0.6); FX.counter(cv, 'the', a.the, M.counter.dur * 0.6); tickSnd(s.xThe ? 'mult' : 'tick', i);
       return 0.5;
     }, K.gap * 3));
     if (e.cong) first('cong'); if (e.heo[win ? 1 : 0] > 0) first('thoi');
@@ -286,7 +300,25 @@
     Q.wait(() => gateOK('afterVan'));
     Q.add(() => endOfVan(e._res), 0);
   }
+  function startFinale() {   // the player's last card is about to fly: hit-stop, slow motion while it flies, zoom into the table
+    const F = CFG.FINALE; fin = { t: 0, skip: false, slow: F.SLOW_FOR };
+    if (FX.reducedMotion) return;
+    FX.hitStop(F.HIT_STOP); FX.timeScale = F.SLOW; FX.tween(FX, { zoom: F.ZOOM }, 0.5, 'out');
+  }
+  function endFinale() { FX.timeScale = 1; if (FX.zoom !== 1) FX.tween(FX, { zoom: 1 }, 0.3, 'out'); }
+  function finale(e) {   // "Về nhất." stamp, shockwave, flash, string of firecrackers and drums; strength follows Khí thế and the cards the opponent still holds
+    const F = CFG.FINALE, c = ctr(r.table); if (!fin) fin = { t: 0, skip: false, slow: 0 };
+    fin.t = 0; fin.skip = false; fin.slow = 0; FX.timeScale = 1;
+    const i = F.BASE_FRAC + (1 - F.BASE_FRAC) * Math.min(1, (khi.lv + e.left[1] / CFG.HAND_SIZE) / (KHI().MAX + 1));
+    FX.stamp(T.stamp.veNhat, 'good', c.x, c.y, { big: 1.5 + 0.7 * i, hold: F.HOLD });
+    for (let k = 0; k < 1 + Math.round(i * (F.RINGS - 1)); k++) FX.ring(c.x, c.y, Math.max(Game().w, Game().h) * (0.35 + 0.2 * i), 0.7, k * 0.18);
+    if (i > 0.55) FX.flash(F.FLASH);
+    for (let k = 0; k < 2 + Math.round(i * 3); k++) FX.after(k * 0.12, () => FX.confetti(c.x + (k - 2) * 60, c.y, Math.round(M.confetti.n * (0.5 + i))));
+    snd('finale', { vol: 0.6 + 0.4 * i }); snd('paoday', { vol: 0.5 + 0.5 * i }); if (TL.BG) TL.BG.pulse(1); FX.shake(M.shake.max * i);
+    endFinale(); return 0;
+  }
   function endOfVan(res) {
+    fin = null; endFinale();
     if (!Game().flags.auto) saveRun();
     if (res === 'next') { sweepAll(false); clearScore(); FX.queue.add(startVan, K.sweep); }
     else if (res === 'cleared') { snd('gong'); stampAt(T.stamp.quaBan, 'gold'); FX.confetti(r.table.x + r.table.w / 2, r.table.y, 50); sweepAll(false); FX.queue.add(() => { tnote('cleared'); return 0; }, 0.6); FX.queue.wait(() => gateOK('beforePay')); FX.queue.add(showPay, 0.4); }
@@ -333,6 +365,7 @@
   function pointer(e) {
     if (!r) return;
     const inB = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+    if (fin && fin.t > 0.2 && fin.t < CFG.FINALE.HOLD + 0.6 && e.type === 'down' && !fin.skip && !fin.slow) { fin.skip = true; FX.skipFinale(); return; }
     if (rcard) { if (e.type === 'down' && rcard.t >= 1.2) closeRule(); return; }
     if (pay) { if (e.type === 'down' && pay.done && inB(payBtn(), e.x, e.y)) leave(); return; }
     if (e.type === 'down' && info.rule && !dead && !Game().overlay && inB(r.oppPlate, e.x, e.y) && !slotAt(e.x, e.y)) { openRule(true); return; }
@@ -466,7 +499,7 @@
     if (pay.done) A.button(ctx, payBtn(), run.phase === 'shop' ? T.payout.next : T.btn.ok, 'idle');
   }
   function update(dt) {
-    if (!r) return; relayout(); if (rcard) rcard.t += dt;
+    if (!r) return; relayout(); if (rcard) rcard.t += dt; if (fin) { fin.t += dt; if (fin.slow > 0 && (fin.slow -= dt) <= 0) endFinale(); }
     [hand, opp, qnS.filter(Boolean), queS.filter(Boolean), swapFly].forEach(l => l.forEach(s => s.update(dt)));
     swapFly = swapFly.filter(s => !s.dead);
     groups.forEach(g => { g.list.forEach(s => s.update(dt)); g.list = g.list.filter(s => !s.dead); }); groups = groups.filter(g => g.list.length);
@@ -496,5 +529,5 @@
   function exit() { dead = true; rcard = null; FX.queue.clear(); FX.reset(); if (TU()) TU().cancel(); }
 
   TL.Screens = TL.Screens || {};
-  TL.Screens.table = { enter: enter, exit: exit, resize: () => { lk = ''; }, update: update, draw: draw, pointer: pointer, key: key_, tutRects: tutRects, _que: () => ({ qr: qr, btn: qbtn, ready: !!ready && vm.turn === 0 && !FX.queue.busy(), hand: hand.map(x => ({ id: x.id, x: x.V.x, y: x.V.y })), msg: vm.msg, x2: vm.x2, vanLeft: vm.vanLeft, reveal: st && st.reveal }) };
+  TL.Screens.table = { enter: enter, exit: exit, resize: () => { lk = ''; }, update: update, draw: draw, pointer: pointer, key: key_, tutRects: tutRects, _khi: lv => { const was = khi.lv; khi.lv = Math.max(0, Math.min(KHI().MAX, lv | 0)); setKhi(true, was); }, _que: () => ({ qr: qr, btn: qbtn, ready: !!ready && vm.turn === 0 && !FX.queue.busy(), hand: hand.map(x => ({ id: x.id, x: x.V.x, y: x.V.y })), msg: vm.msg, x2: vm.x2, vanLeft: vm.vanLeft, reveal: st && st.reveal }) };
 })(globalThis.TL = globalThis.TL || {});

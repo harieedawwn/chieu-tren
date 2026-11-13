@@ -16,13 +16,16 @@
  *   FX.springStep(s{x,v}, target, dt, freq, zeta)   FX.ease{linear,out,back,inout,spring,outBack(t,s)}   (pure, used by sprite.js)
  *   FX.text(ctx, str, x, y, opts{size,color,align,outline,shadow})  TL.Art.text if present, else fallback; y = vertical middle
  *   FX.artPx() -> css px per art pixel
+ *   Khi the / finale: FX.khi (0..3) scales popup size and shake (cap CFG.KHI.SHAKE_CAP); FX.timeScale (<1 = slow motion), FX.zoom (main.js scales the frame), FX.hitStop(s) freezes everything
+ *   FX.ring(x, y, maxR, dur) flat pixel shockwave, FX.flash(dur) gold frame flash, FX.skipFinale() ends rings/flash/big stamps at once; FX.stamp(..., {big, hold}) big = size multiplier
  */
 (function (TL) {
   'use strict';
   const CFG = TL.CFG, M = CFG.MOTION, PAL = CFG.PAL;
   const TAU = Math.PI * 2;
-  const FX = { speed: 1, reducedMotion: false, offset: { x: 0, y: 0 }, time: 0, view: null, pixel: 3, textScale: 1 };
-  const sp = () => (FX.speed > 0 ? FX.speed : 1);
+  const FX = { speed: 1, reducedMotion: false, offset: { x: 0, y: 0 }, time: 0, view: null, pixel: 3, textScale: 1, khi: 0, timeScale: 1, zoom: 1, freeze: 0 };
+  const KH = () => TL.CFG.KHI;
+  const sp = () => (FX.speed > 0 ? FX.speed : 1) * (FX.timeScale > 0 ? FX.timeScale : 1);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -218,7 +221,7 @@
     for (const p of popups) {
       const k = p.age / P.dur, d = POP[p.kind];
       const pop = k < 0.22 ? outBack(k / 0.22, P.back) : 1;
-      const size = Math.max(9, Math.round(base * d.size * FX.textScale * Math.round(pop * 12) / 12));   // quantised so the bitmap cache stays small
+      const size = Math.max(9, Math.round(base * d.size * FX.textScale * KH().popup[clamp(FX.khi | 0, 0, KH().MAX)] * Math.round(pop * 12) / 12));   // quantised so the bitmap cache stays small
       const al = k < P.fadeAt ? 1 : Math.max(0, 1 - (k - P.fadeAt) / (1 - P.fadeAt));
       const rise = P.rise * (v.h > 700 ? 0.75 : 0.55) * EASE.out(Math.min(1, k / 0.8));
       const bs = TL.Art.badgeSize(p.str, size);
@@ -240,7 +243,7 @@
     gold: { fill: PAL.vangKim, ink: PAL.denSon, edge: PAL.doSon },
     bad: { fill: PAL.denSon, ink: PAL.doSon, edge: PAL.doSon },
   };
-  function stamp(str, kind, x, y) { stamps.push({ str: String(str), kind: STAMP[kind] ? kind : 'good', x: x, y: y, age: 0, hit: false, lay: null }); }
+  function stamp(str, kind, x, y, o) { stamps.push({ str: String(str), kind: STAMP[kind] ? kind : 'good', x: x, y: y, age: 0, hit: false, lay: null, o: o || {} }); }
   function splitTwo(str) {
     const seps = [' · ', ': ', '. ', ' '], mid = str.length / 2;
     for (const sp of seps) {
@@ -250,8 +253,8 @@
     }
     return [str];
   }
-  function layoutStamp(str, v, maxW) {
-    let size = clamp(Math.min(v.w * 0.06, v.h * 0.085), 22, 60) * FX.textScale;
+  function layoutStamp(str, v, maxW, big) {
+    let size = clamp(Math.min(v.w * 0.06, v.h * 0.085), 22, 60) * FX.textScale * (big || 1);
     const fits = (lines, sz) => Math.max.apply(null, lines.map((l) => tw(l, sz))) + sz * 1.6 <= maxW;
     let lines = [str];
     while (size > 15 && !fits(lines, Math.round(size))) size -= 1;
@@ -265,10 +268,10 @@
     if (!stamps.length || !TL.Art) return;
     const S = M.stamp, v = viewOf(ctx), A = TL.Art;
     for (const s of stamps) {
-      if (!s.lay) s.lay = layoutStamp(s.str, v, v.w * 0.92);
+      if (!s.lay) s.lay = layoutStamp(s.str, v, v.w * 0.92, s.o.big);
       let sc = 1, al = 1;
       if (s.age < S.in) { const k = s.age / S.in; sc = S.from + (1 - S.from) * outBack(k, 1.2); al = Math.min(1, k * 3); }
-      else if (s.age > S.in + S.hold) { const k = (s.age - S.in - S.hold) / S.out; al = 1 - k; sc = 1 + 0.08 * k; }
+      else if (s.age > S.in + (s.o.hold || S.hold)) { const k = (s.age - S.in - (s.o.hold || S.hold)) / S.out; al = 1 - k; sc = 1 + 0.08 * k; }
       sc = Math.min(sc, 1.6); sc = Math.round(sc * 20) / 20;
       const d = STAMP[s.kind], size = Math.max(10, Math.round(s.lay.size * sc)), lines = s.lay.lines;
       let wmax = 0, lh = 0;
@@ -291,7 +294,9 @@
   let amp = 0;
   function shake(px) {
     if (FX.reducedMotion || !(px > 0)) return;
-    amp = Math.min(M.shake.max, Math.max(amp, px) + 0.3 * Math.min(amp, px));
+    const lv = clamp(FX.khi | 0, 0, KH().MAX), cap = lv > 0 ? KH().SHAKE_CAP : M.shake.max;
+    px *= KH().shake[lv];
+    amp = Math.min(cap, Math.max(amp, px) + 0.3 * Math.min(amp, px));
   }
   const shakeFor = (score) => Math.min(M.shake.max, M.shake.perLog * Math.log(1 + Math.max(0, score) / M.shake.ref));
   const stepGap = (n) => clamp(M.play.step * Math.min(1, 5 / Math.max(1, n)), M.play.stepMin, M.play.step);
@@ -353,34 +358,62 @@
     }
   }
 
+  // ---------- finale: shockwave rings, flash frame, hit-stop ----------
+  let rings = [], flashT = 0, flashD = 0;
+  function ring(x, y, maxR, dur, delay) { if (!FX.reducedMotion) rings.push({ x: x, y: y, maxR: maxR, dur: dur || 0.6, age: -(delay || 0) }); }
+  function flash(dur) { if (!FX.reducedMotion) { flashD = dur || 0.18; flashT = flashD; } }
+  function hitStop(sec) { if (!FX.reducedMotion && sec > 0) FX.freeze = Math.max(FX.freeze, sec); }
+  function skipFinale() { rings = []; flashT = 0; FX.freeze = 0; for (const s of stamps) if (s.o.big) s.age = Math.max(s.age, M.stamp.in + (s.o.hold || M.stamp.hold)); }
+  function drawFinale(ctx) {
+    const ps = artPx();
+    for (const r of rings) {
+      if (r.age < 0) continue;
+      const k = r.age / r.dur, R = EASE.out(k) * r.maxR, w = Math.max(ps, Math.round((1 - k) * 4) * ps);
+      ctx.save(); ctx.globalAlpha = 1 - k; ctx.fillStyle = k < 0.5 ? PAL.vangKim : PAL.doSon;
+      const step = ps * 2, n = Math.max(12, Math.round(R * TAU / step));
+      for (let i = 0; i < n; i++) { const a = i / n * TAU; ctx.fillRect(Math.round((r.x + Math.cos(a) * R) / ps) * ps, Math.round((r.y + Math.sin(a) * R) / ps) * ps, w, w); }
+      ctx.restore();
+    }
+    if (flashT > 0) {
+      const v = FX.view || { w: 640, h: 360 }, t = Math.round(Math.min(v.w, v.h) * 0.06 / ps) * ps || ps;
+      ctx.save(); ctx.globalAlpha = Math.min(1, flashT / flashD * 1.4); ctx.fillStyle = PAL.vangKim;
+      ctx.fillRect(0, 0, v.w, t); ctx.fillRect(0, v.h - t, v.w, t); ctx.fillRect(0, t, t, v.h - 2 * t); ctx.fillRect(v.w - t, t, t, v.h - 2 * t);
+      ctx.restore();
+    }
+  }
+
   // ---------- frame ----------
   function update(dt) {
     if (!(dt > 0)) return;
     dt = Math.min(dt, 0.1);
     FX.time += dt;
+    if (FX.freeze > 0) { FX.freeze -= dt; return; }
     runTimers(dt); runQueue(dt); runTweens(dt);
     const sdt = dt * sp();
     for (const p of popups) p.age += sdt;
     popups = popups.filter((p) => p.age < M.popup.dur);
     for (const s of stamps) {
       s.age += sdt;
-      if (!s.hit && s.age >= M.stamp.in) { s.hit = true; shake(5); }
+      if (!s.hit && s.age >= M.stamp.in) { s.hit = true; shake(s.o.big ? 8 : 5); }
     }
-    stamps = stamps.filter((s) => s.age < M.stamp.in + M.stamp.hold + M.stamp.out);
+    stamps = stamps.filter((s) => s.age < M.stamp.in + (s.o.hold || M.stamp.hold) + M.stamp.out);
     if (FX.reducedMotion) amp = 0;
     amp *= Math.exp(-M.shake.decay * sdt);
     if (amp < 0.05) amp = 0;
     FX.offset.x = amp ? Math.round((Math.random() * 2 - 1) * amp) : 0;
     FX.offset.y = amp ? Math.round((Math.random() * 2 - 1) * amp) : 0;
+    for (const r of rings) r.age += sdt;
+    rings = rings.filter((r) => r.age < r.dur);
+    if (flashT > 0) flashT -= sdt;
     runParticles(sdt);
   }
   function draw(ctx) {
     ctx.save(); ctx.imageSmoothingEnabled = false;
-    drawParticles(ctx); drawPopups(ctx); drawStamps(ctx);
+    drawParticles(ctx); drawFinale(ctx); drawPopups(ctx); drawStamps(ctx);
     ctx.restore();
   }
   function reset() {
-    queue.clear(); timers = []; tweens = []; popups = []; stamps = []; conf = []; fl = []; emitters.clear(); amp = 0;
+    queue.clear(); timers = []; tweens = []; popups = []; stamps = []; conf = []; fl = []; emitters.clear(); amp = 0; rings = []; flashT = 0; FX.freeze = 0; FX.timeScale = 1; FX.zoom = 1;
     FX.offset.x = 0; FX.offset.y = 0;
   }
 
@@ -388,7 +421,7 @@
     update: update, draw: draw, reset: reset, queue: queue, after: after, tween: tween, counter: counter,
     juice: juice, juiceOf: juiceOf, popup: popup, stamp: stamp, shake: shake, confetti: confetti, flame: flame,
     shakeFor: shakeFor, stepGap: stepGap, tickPitch: tickPitch, springStep: springStep, ease: EASE,
-    text: text, font: font, artPx: artPx,
+    text: text, font: font, artPx: artPx, ring: ring, flash: flash, hitStop: hitStop, skipFinale: skipFinale,
   });
   TL.FX = FX;
 })(globalThis.TL = globalThis.TL || {});

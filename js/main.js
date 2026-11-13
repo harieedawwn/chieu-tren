@@ -141,6 +141,7 @@
     ctx.clearRect(0, 0, Game.w, Game.h);
     ctx.save();
     if (FX && FX.offset) ctx.translate(FX.offset.x, FX.offset.y);
+    if (FX && FX.zoom !== 1) { ctx.translate(Game.w / 2, Game.h / 2); ctx.scale(FX.zoom, FX.zoom); ctx.translate(-Game.w / 2, -Game.h / 2); }
     if (Game.screen && Game.screen.draw) Game.screen.draw(ctx);
     if (Game.overlay && Game.overlay.draw) Game.overlay.draw(ctx);
     if (FX) FX.draw(ctx);

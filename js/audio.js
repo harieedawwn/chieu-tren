@@ -6,7 +6,7 @@
  *   setVolume(v)                  master volume 0..1 (default 0.8)
  *   muted / volume / names        read-only: state, array of every cue name
  *   renderOffline(name, o, secs)  Promise<AudioBuffer> offline render of one cue (tests, no unlock needed)
- * Cues: deal flip select place tick mult chat vong venhat thua stamp button hover coin buy sell dissolve gong shuffle
+ * Cues: deal flip select place tick mult chat vong venhat thua stamp button hover coin buy sell dissolve gong shuffle bass pao paoday khi finale
  * Graph: voices -> comp -> master -> limiter -> soft clip -> out; UI cues bypass comp. Reverb send = small room.
  * Units: seconds, Hz. No DOM except input listeners for unlock. Works on iOS/Android and Zalo/Facebook/Messenger in-app browsers.
  */
@@ -181,7 +181,8 @@
     deal: 0.63, flip: 1.22, shuffle: 0.34, select: 3.2, place: 0.4,
     tick: 1.9, mult: 0.29, chat: 1.2, vong: 0.24, venhat: 0.49,
     thua: 0.29, stamp: 0.97, button: 1.19, hover: 0.65, coin: 0.155,
-    hum: 0.5, buy: 0.15, sell: 0.17, dissolve: 0.46, gong: 0.7
+    hum: 0.5, buy: 0.15, sell: 0.17, dissolve: 0.46, gong: 0.7,
+    bass: 0.6, pao: 0.5, paoday: 0.5, khi: 0.5, finale: 0.6
   };
   function def(name, meta, fn) { R[name] = { fn: fn, bus: meta.bus, max: meta.max || 4, pv: meta.pv, level: LEVEL[name] }; }
 
@@ -306,6 +307,34 @@
     return a.end;
   });
   def('gong', { max: 2, pv: 0.03 }, function (a, t) { gong(a, t, { g: 1, len: 1.1 }); return a.end; });
+  def('bass', { max: 3 }, function (a, t) {                    // Khi the: low drum under each tick (play with vol = CFG.KHI.drum[lv])
+    a.tone(t, { f0: 96, f1: 48, glide: 0.09, attack: 0.001, tau: 0.11, gain: 1.0, drive: true });
+    a.noise(t, { type: 'brown', attack: 0.002, tau: 0.1, gain: 0.7, filters: [a.filter('lowpass', 260)], drive: true });
+    return a.end;
+  });
+  def('pao', { max: 2 }, function (a, t) {                     // Khi the: short firework tail after a slam (burst, then a few crackers)
+    swish(a, t, 500, 2600, 0.12, 0.5);
+    for (var i = 0; i < 5; i++) cracker(a, t + 0.12 + i * rnd(0.03, 0.07), rnd(0.45, 0.8));
+    return a.end;
+  });
+  def('paoday', { max: 1, pv: 0.03 }, function (a, t) {        // winning finale: string of firecrackers, accelerating
+    var at = t;
+    for (var i = 0; i < 22; i++) { cracker(a, at, rnd(0.5, 0.9)); at += Math.max(0.03, 0.12 - i * 0.004) * rnd(0.7, 1.3); }
+    a.noise(t, { type: 'pink', attack: 0.05, tau: 0.8, gain: 0.25, filters: [a.filter('lowpass', 900)], wet: 0.8 });
+    return a.end;
+  });
+  def('khi', { max: 2, pv: 0.02 }, function (a, t) {           // Khi the level up: rising drum roll with a high shimmer (a.p = level pitch)
+    var p = a.p;
+    drum(a, t, 150 * p, 0.7, 0.1); drum(a, t + 0.08, 165 * p, 0.8, 0.1); drum(a, t + 0.16, 190 * p, 1.0, 0.14);
+    a.partials(t + 0.16, 880 * p, [1, 2.01, 3.02], [1, 0.5, 0.25], [0.12, 0.09, 0.06], 0.3, 2);
+    return a.end;
+  });
+  def('finale', { max: 1, pv: 0.03 }, function (a, t) {        // winning finale: drum run into a gong and a big low hit
+    [0, 0.12, 0.24, 0.34, 0.44, 0.5].forEach(function (d, i) { drum(a, t + d, 120 + i * 18, 0.8 + i * 0.1, 0.12); });
+    gong(a, t + 0.56, { g: 1.1, len: 1.4 });
+    a.tone(t + 0.56, { f0: 80, f1: 38, glide: 0.4, tau: 0.35, gain: 0.9, drive: true });
+    return a.end;
+  });
 
   /* ---------- engine ---------- */
   var ctx = null, g = null, voices = [], muted = false, vol = 0.8, unlocked = false, attached = false;

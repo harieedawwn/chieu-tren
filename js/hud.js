@@ -281,7 +281,9 @@
   // ------------------------------------------------------------------ draw
   function drawTable(ctx, vm, r) {
     A().panel(ctx, r.table, { fill: PAL.denSon, border: false, shadow: false, radius: 8 });
-    inset(ctx, r.table, PAL.vangKim, 0.18, 3);
+    const kl = vm.khi | 0, kc = CFG.KHI.border[kl];   // Khí thế: the frame warms from vàng kim to đỏ son
+    inset(ctx, r.table, kc, [0.18, 0.3, 0.5, 0.8][kl], 3);
+    if (kl >= 2) inset(ctx, r.table, kc, 0.6, 6);
     // pot plate, centred at the top of the stage; the lane above it is where its popups rise
     const p = r.pot;
     lacquer(ctx, p, PAL.nauCanhGian, { off: 4, radius: 5 });
@@ -452,7 +454,17 @@
   }
 
   // Suc bai: 1-3 small flat stars above the hand's top-left corner; 1 star also says "Bai xau"
+  function drawKhi(ctx, vm, r) {   // Khí thế: 3 dots at the right end of the hand strip, gold; at level 3 they burn red inside
+    if (!vm.live) return;
+    const h = r.hand, d = clamp(Math.round(r.cardH * 0.12), 8, 16), x0 = h.x + h.w - 3 * d * 1.6 - 4, cy = h.y - d * 0.8, lv = vm.khi | 0, k = juiced(vm, 'khi');
+    for (let i = 0; i < 3; i++) {
+      const on = i < lv, sz = Math.round(d * (on ? k : 1)), x = Math.round(x0 + i * d * 1.6), y = Math.round(cy - sz / 2);
+      fillR(ctx, on ? PAL.vangKim : PAL.nauCanhGian, x, y, sz, sz, on ? 1 : 0.8);
+      if (on && lv === 3) fillR(ctx, PAL.doSon, x + 2, y + 2, Math.max(1, sz - 4), Math.max(1, sz - 4), 1);
+    }
+  }
   function drawStars(ctx, vm, r) {
+    drawKhi(ctx, vm, r);
     const n = vm.suc | 0; if (!vm.live || n < 1) return;
     const h = r.hand, s = clamp(Math.round(r.cardH * 0.11), 7, 13), x0 = h.x + 4, cy = h.y - s * 0.2;
     for (let i = 0; i < 3; i++) {
