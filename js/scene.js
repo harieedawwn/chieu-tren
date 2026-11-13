@@ -90,12 +90,8 @@
   const fanOpp = dur => SP.fan(opp, r.oppHand, { overlap: 0.5, curve: 0.6, dur: dur });
   function tableRect(k) { const p = r.tablePlay, dx = ((k % 3) - 1) * p.w * 0.05, dy = (k % 2 ? 1 : -1) * p.h * 0.04; return { x: p.x + dx, y: p.y + dy, w: p.w, h: p.h }; }
   // Quẻ rail: two slots on the left edge of the table (stacked when the table is tall enough, else side by side), under the played cards
-  function queLayout() {
-    const t = r.table, dpr = Game().dpr || 1, g = 6, sc = Math.max(1, TL.HUD.scaleFor(r.qnSlot[0].h * 0.8, dpr)), w = Math.round(48 * sc / dpr) + 8, h = Math.round(64 * sc / dpr) + 8;
-    const y0 = t.y + (r.mode === 'landscape' ? 46 : 6), stack = t.h - (y0 - t.y) >= 2 * h + g + 6;
-    qr = [0, 1].map(i => stack ? { x: t.x + 6, y: y0 + i * (h + g), w: w, h: h } : { x: t.x + 6 + i * (w + g), y: y0, w: w, h: h });
-  }
-  function placeQue(s, i) { const b = qr[i], c = ctr(b); s.scale = Math.max(1, Math.floor((b.h - 8) * (Game().dpr || 1) / 64 + 1e-6)); s.sway = false; s.T.x = s.V.x = c.x; s.T.y = s.V.y = c.y; s._sp.x.x = c.x; s._sp.y.x = c.y; }
+  function queLayout() { qr = r.queSlot.slice(); }   // Quẻ slots live beside the Quý nhân row (HUD.layout), never over the table
+  function placeQue(s, i) { const b = qr[i], c = ctr(b); s.scale = TL.HUD.scaleFor(b.h, Game().dpr); s.sway = false; s.T.x = s.V.x = c.x; s.T.y = s.V.y = c.y; s._sp.x.x = c.x; s._sp.y.x = c.y; }
   function buildQue() { queS = run.que.map((q, i) => { if (!q) return null; const s = mk(A.que(q), 1, q); placeQue(s, i); return s; }); qtip = null; }
   function buildQn() {
     qnS = run.qn.map((q, i) => { if (!q) return null; const s = mk(A.quyNhan(q.id), 1, q.id); placeQn(s, i); return s; });
@@ -106,7 +102,7 @@
     const G = Game();
     if (!G.run) G.run = TL.Run.create(G.flags.seed != null ? G.flags.seed : undefined);
     if (G.flags.auto && G.flags.endless && !G.run.endless) { const x = G.run; x.chang = 2; x.ban = 2; x.phase = 'won'; TL.Run.continueEndless(x); }
-    run = G.run; if (TL.Tutorial) TL.Tutorial.attach(run); dead = false; pay = null; rcard = null; ruleSeen = ''; sortMode = 'rank'; ghost = {}; tmsg = selMsg = null; tipHover = tipPin = null; downBtn = hovBtn = null; lk = '';
+    run = G.run; if (TL.Tutorial) TL.Tutorial.attach(run); dead = false; pay = null; rcard = null; ruleSeen = ''; sortMode = G.settings.sort === 'suit' ? 'suit' : 'rank'; ghost = {}; tmsg = selMsg = null; tipHover = tipPin = null; downBtn = hovBtn = null; lk = '';
     hand = []; opp = []; qnS = []; groups = []; st = null; ready = false; leg = null; selOk = false; vongPlays = 0; khi = TL.Khi.make(); fin = null;
     cv = { pot: 0, diemBan: 0, diem: 0, the: 0, lixi: run.money, juiceTargets: J }; shownDB = 0; info = TL.Run.ban(run); buildVm(); FX.reset(); relayout(); buildQn(); buildQue(); swapFly = []; soiOn = false;
     if (run.phase === 'payout') return showPay();
@@ -169,7 +165,6 @@
       if (!res.ok) { say(res.msg); snd('button'); return; }
       snd('stamp', { vol: 0.8 }); doSwap(res.events[0]); if (run.van.xau) FX.juice(J.the, 1.1); saveRun();
     } else if (id === 'goiy') hint();
-    else if (id === 'xep') xep();
     else if (id === 'menu') Game().setScreen('settings');
   }
   function hint() {
@@ -183,7 +178,11 @@
     hand.forEach(s => { const on = ids.indexOf(s.id) >= 0; if (on && !s.selected) s.juice(0.5); s.selected = on; }); snd('select'); refresh();
   }
   function xep() {
-    sortMode = sortMode === 'rank' ? 'suit' : 'rank'; const order = C.sortHand(hand.map(s => s.id), sortMode);
+    const G = Game(); G.settings.sort = G.settings.sort === 'suit' ? 'rank' : 'suit'; G.saveSettings(); applySort(true);
+  }
+  function applySort(fx) {   // sortMode follows Game.settings.sort (Menu toggle, S key, default for the next deal)
+    const want = Game().settings.sort === 'suit' ? 'suit' : 'rank'; if (want === sortMode && !fx) return; sortMode = want; vm.sortMode = sortMode;
+    if (!hand || !hand.length) return; const order = C.sortHand(hand.map(s => s.id), sortMode);
     hand.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); fanHand(0.35); hand.forEach(s => s.juice(0.4)); snd('shuffle');
   }
   function refresh() {   // selection preview: combo name, level, Điểm × Thế only for a legal selection
@@ -237,14 +236,23 @@
     } else if (s.label) FX.popup(s.label, c.x, b.y + b.h * 0.34, s.xThe ? 'xthe' : s.the ? 'the' : 'gold', { center: true });
   }
   function doDeal(e, steps) {
-    const d = ctr(r.deck), n = e.hands[0].length, st0 = M.deal.stagger, G = Game();
-    sortMode = 'rank'; vm.live = true; snd('deal'); snd('shuffle');
+    const d = ctr(r.deck), n = e.hands[0].length, DL = M.deal, G = Game();
+    // card k lands on flick k of the riffle cue (same curve as audio 'shuffle'); the cue starts when the first card lands, the last card lands on its closing thud
+    const N = n * 2, land = k => (k >= N - 1 ? DL.riffle + 0.03 : DL.riffle * Math.pow(Math.floor(k * DL.flicks / N) / DL.flicks, DL.pow)), lastT = DL.fly + land(N - 1);
+    sortMode = G.settings.sort === 'suit' ? 'suit' : 'rank'; vm.live = true; FX.after(DL.fly, () => { snd('deal'); snd('shuffle'); });
     hand = C.sortHand(e.hands[0], sortMode).map(id => mk(A.back(), hs, id)); fanHand(0);
     if (four()) { cnt = e.hands.map(h => h.length); passedS = [false, false, false, false]; opp = []; refresh(); } else { opp = e.hands[1].map(id => mk(A.back(), os, id)); fanOpp(0); }
-    hand.forEach((s, i) => s.deal(d, i * 2 * st0, A.card(s.id)));
-    opp.forEach((s, i) => s.deal(d, (i * 2 + 1) * st0, st.peek.indexOf(s.id) >= 0 ? A.card(s.id) : null));
-    steps.forEach(s => FX.after(n * 2 * st0 + M.deal.fly, () => { qnFx(s); snd('mult'); }));
-    return n * 2 * st0 + M.deal.fly + (steps.length ? 0.5 : 0.15);
+    hand.forEach((s, i) => s.deal(d, land(i * 2), A.card(s.id)));
+    opp.forEach((s, i) => s.deal(d, land(i * 2 + 1), st.peek.indexOf(s.id) >= 0 ? A.card(s.id) : null));
+    steps.forEach(s => FX.after(lastT, () => { qnFx(s); snd('mult'); }));
+    return lastT + (steps.length ? 0.5 : 0.15);
+  }
+  function soloUnlock() {   // the first bàn ever won opens Sòng bốn: stamp + a short flourish after the Qua bàn stamp
+    if (Game().flags.auto) return;
+    let first = false; try { const pr = TL.Profile.get(); first = TL.Profile.noteBan(pr); if (first) TL.Profile.save(pr); } catch (e) { return; }
+    if (!first) return;
+    FX.queue.add(() => 0, 0.9);
+    FX.queue.add(() => { snd('stamp'); stampAt(T.stamp.soloOpen, 'good'); FX.confetti(r.table.x + r.table.w / 2, r.table.y + r.table.h * 0.4, 36); FX.ring(r.table.x + r.table.w / 2, r.table.y + r.table.h / 2, Math.min(r.table.w, r.table.h) * 0.6, 0.6); return 0; }, 1.0);
   }
   function flyCards(e, P) {
     const ids = e.combo.cards, k = vongPlays++;
@@ -337,7 +345,7 @@
     fin = null; endFinale();
     if (!Game().flags.auto) saveRun();
     if (res === 'next') { sweepAll(false); clearScore(); FX.queue.add(startVan, K.sweep); }
-    else if (res === 'cleared') { snd('gong'); stampAt(T.stamp.quaBan, 'gold'); FX.confetti(r.table.x + r.table.w / 2, r.table.y, 50); sweepAll(false); FX.queue.add(() => { tnote('cleared'); return 0; }, 0.6); FX.queue.wait(() => gateOK('beforePay')); FX.queue.add(showPay, 0.4); }
+    else if (res === 'cleared') { snd('gong'); stampAt(T.stamp.quaBan, 'gold'); FX.confetti(r.table.x + r.table.w / 2, r.table.y, 50); sweepAll(false); soloUnlock(); FX.queue.add(() => { tnote('cleared'); return 0; }, 0.6); FX.queue.wait(() => gateOK('beforePay')); FX.queue.add(showPay, 0.4); }
     else FX.queue.add(() => toEnd('lost'), 0.3);
   }
   function sweepAll(now) {   // slide every remaining card off (or drop it at once)
@@ -393,6 +401,7 @@
       if (qtip != null) { const q = qtipRect(); if (q && e.x >= q.x && e.x <= q.x + q.w && e.y >= q.y && e.y <= q.y + q.h) return; qtip = null; }
       const sl = slotAt(e.x, e.y); tipPin = sl != null && tipPin !== sl ? sl : null; if (sl != null) { tipHover = sl; return; }
       const id = TL.HUD.hit(r, e.x, e.y); if (id) { downBtn = id; snd('button'); return; }
+      if (vm.live && vm.suc && r._suc && inB(r._suc, e.x, e.y) && !SP.pick(hand, e.x, e.y)) { say(T.hud.sucTip[vm.suc].replace('%s', CFG.XAU_X), 2.6); snd('select'); return; }
       if (!canAct()) return; const s = SP.pick(hand, e.x, e.y);
       if (s && TU() && !TU().allowCard(s.id)) { TU().nudge(); return; }
       if (s) { s.selected = !s.selected; s.juice(0.6); snd('select'); hintList = null; refresh(); }
@@ -404,7 +413,8 @@
     if (rcard) { if (rcard.t >= 1.2) closeRule(); return; }
     if (pay) { if (pay.done && (e.key === 'enter' || e.key === 'space')) leave(); return; }
     if (e.key === 'esc') return Game().setScreen('settings');
-    const m = { enter: 'danh', space: 'bo', h: 'goiy', s: 'xep', d: 'doi' }[e.key]; if (m) act(m);
+    if (e.key === 's') { if (hand && !Game().overlay) xep(); return; }   // Xếp bài: the button moved into Menu, the key stays
+    const m = { enter: 'danh', space: 'bo', h: 'goiy', d: 'doi' }[e.key]; if (m) act(m);
   }
 
   // ------------------------------------------------------------ draw
@@ -453,7 +463,6 @@
     leg = RU.legal(st, 0); hintList = null; refresh(); say(T.que.swapped, 1.5);
   }
   function drawQue(ctx) {
-    qr.forEach((b, i) => { A.slot(ctx, b, { radius: 4 }); });
     SP.drawAll(ctx, queS.filter(Boolean));
   }
   function qtipRect() {
@@ -515,7 +524,7 @@
     if (pay.done) A.button(ctx, payBtn(), run.phase === 'shop' ? T.payout.next : T.btn.ok, 'idle');
   }
   function update(dt) {
-    if (!r) return; relayout(); if (rcard) rcard.t += dt; if (fin) { fin.t += dt; if (fin.slow > 0 && (fin.slow -= dt) <= 0) endFinale(); }
+    if (!r) return; relayout(); applySort(false); if (rcard) rcard.t += dt; if (fin) { fin.t += dt; if (fin.slow > 0 && (fin.slow -= dt) <= 0) endFinale(); }
     [hand, opp, qnS.filter(Boolean), queS.filter(Boolean), swapFly].forEach(l => l.forEach(s => s.update(dt)));
     swapFly = swapFly.filter(s => !s.dead);
     groups.forEach(g => { g.list.forEach(s => s.update(dt)); g.list = g.list.filter(s => !s.dead); }); groups = groups.filter(g => g.list.length);

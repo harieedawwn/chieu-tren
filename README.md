@@ -43,7 +43,7 @@ Mùng Một chưa tới mà nhà nào cũng đã trải chiếu. Bạn ngồi xu
 | **Chơi thường** | Ba chặng, chín bàn; bàn trùm chặng 3 là **Sòng Giao thừa**: bạn đấu boss và hai người họ hàng (4 người). |
 | **Thử thách ngày** | Cùng một ván cho mọi người (Chiếu 2, không Khởi đầu, không tiện ích); mỗi ngày một lượt, có nút Sao chép kết quả. |
 | **Vô tận** | Mở sau lần thắng đầu: vào thẳng chặng 4 trở đi. |
-| **Sòng bốn** | Mọi bàn là 4 người. Mở khi Tiếng tăm đủ cấp 3. |
+| **Sòng bốn** | Mọi bàn là 4 người. Mở sau khi thắng một bàn bất kỳ. |
 
 ## Tiếng tăm, Cây mai, Khởi đầu, Chiếu
 
@@ -164,7 +164,7 @@ Nút **Sổ tay** ở màn chính ghi lại mọi Quý nhân, Quẻ, Sao và Lu�
 | **Đánh** | `Enter` | Nút Đánh |
 | **Bỏ lượt** | `Space` | Nút Bỏ lượt |
 | **Gợi ý** (lần lượt các bộ đánh được) | `H` | Nút Gợi ý |
-| **Xếp** bài theo số / theo chất | `S` | Nút Xếp |
+| **Xếp** bài theo số / theo chất | `S` | Menu → Xếp bài |
 | Menu, Cài đặt, đóng hộp thoại | `Esc` | Nút Menu |
 | Xem mô tả Quý nhân, Quẻ | Rê chuột / click | Chạm vào ô |
 | Chợ Tết: chọn thẻ, mua / bán / dùng, đi tiếp | Click, `←` `→`, `Enter`, `Space` | Chạm |

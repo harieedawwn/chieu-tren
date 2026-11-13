@@ -1,5 +1,5 @@
 # PLAN — Round 3 (đọc đầu mỗi phiên; làm từ ô chưa tick đầu tiên; thiết kế ở DESIGN.md mục "Round 3", bước n ↔ mục R ghi trong ngoặc)
-- [ ] 1 Quick fixes, controls, easy Sòng bốn unlock, deal timing (R1)
+- [x] 1 Quick fixes, controls, easy Sòng bốn unlock, deal timing (R1)
 - [ ] 2 Ultra-wide landscape phone layout (R2)
 - [ ] 3 Performance: profiling, fixes, adaptive quality, perf guard + CLAUDE.md (R3)
 - [ ] 4 Smaller popups on phones, skippable animations, Cây mai overlap (R4)
@@ -10,7 +10,7 @@
 - [ ] 9 Motion overhaul: transitions and signature animations (R8)
 - [ ] 10 Device matrix, perf budget, tests, README, live check (R9)
 
-Next: Bước 1.
+Next: Bước 2. Ghi chú bước 1: nút Xếp bỏ khỏi bàn → Cài đặt có hàng 'Xếp bài' (Game.settings.sort rank|suit, phím S đảo, scene.applySort đồng bộ); nút: Đánh+Gợi ý ngang, Bỏ lượt giữa (đỏ son, cách ≥16 = HUD BGAP), Đổi dưới; ngang = một cột nút full-height bên phải (btn rộng ≥124 ở điện thoại), dọc = 2 hàng; Art.button(…, {face}); Quẻ: r.queSlot/queRow cạnh hàng Quý nhân (dọc: 7 cột + kho bài thành deckCol bên phải bàn); sao Sức bài có nhãn + r._suc chạm hiện bong bóng (TX.hud.sucTip); txt() co chữ tới 7 (fit:true tới 5) trước khi cắt '…', Ván dùng fit; Profile.noteBan + con dấu 'Mở khoá: Sòng bốn' (scene.soloUnlock, không ở ?auto), Sòng bốn mở khi thắng 1 bàn (save cũ: thắng run hoặc cấp 3); chia bài: CFG.MOTION.deal {fly .22, riffle .55, flicks 30, pow 1.4} lá k hạ đúng nhịp tiếng shuffle, âm không đổi. index.html ?v=17. Chưa kiểm tay con dấu mở khoá trong trình duyệt (chỉ test Profile).
 
 ## Session protocol
 - Start: read PLAN.md, the DESIGN.md sections for the first unticked step, SPEC.md Glossary, and only the API headers (top comments) of files you need; grep instead of reading whole files.

@@ -18,7 +18,8 @@
   const CFG = TL.CFG, DATA = TL.DATA, TX = DATA.TEXT, PAL = CFG.PAL;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const R = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
-  const BTN_IDS = ['danh', 'bo', 'goiy', 'xep', 'doi', 'menu'];
+  const BTN_IDS = ['danh', 'bo', 'goiy', 'doi', 'menu'];   // Xếp lives in the Menu (Cài đặt) now
+  const BGAP = 16;   // minimum clear gap around Bỏ lượt so it is never hit by accident
   const CAP = 22; // caption band under the Quy nhan slots
   let UI = 1;      // text scale of the current draw pass (rects.ui, or the info-panel unit)
 
@@ -39,6 +40,11 @@
     const slotW = Math.round(slotH * 0.75), slots = [];
     for (let i = 0; i < CFG.LAYOUT.qnSlots; i++) slots.push(R(x + i * (slotW + g), y, slotW, slotH));
     return { slots: slots, row: R(x, y, 5 * slotW + 4 * g, slotH + CAP), slotW: slotW };
+  }
+
+  function queGeometry(x, y, slotW, slotH, g) {   // the two Quẻ slots sit right beside the Quý nhân row
+    const slots = [0, 1].map(i => R(x + i * (slotW + g), y, slotW, slotH));
+    return { slots: slots, row: R(x, y, 2 * slotW + g, slotH + CAP) };
   }
 
   // the stage: pot plate centred under a popup lane, turn ribbon in the corner, played cards centred and large.
@@ -82,21 +88,22 @@
   }
 
   function layoutLandscape(w, h, X0, Y0, W, H, gap) {
-    const L = CFG.LAYOUT; let btnS = null;
+    const L = CFG.LAYOUT;
     const short = h < L.shortBelow;   // landscape phone: slim left column, one vertical button column on the right edge
     const pw = Math.round(short ? clamp(w * L.shortPanelFrac, 168, 230) : clamp(w * L.panelFrac, 196, 460));
     const panel = R(X0, Y0, pw, H);
     const ax = X0 + pw + gap; let aW = X0 + W - ax;
-    const btnW = short ? Math.round(clamp(aW * 0.17, 92, 150)) : Math.round(clamp(aW * 0.3, 148, 340));
-    if (short) aW -= btnW + gap;
-    const handW = short ? aW : aW - btnW - gap;
+    const btnW = short ? Math.round(clamp(aW * 0.2, 124, 170)) : Math.round(clamp(aW * 0.26, 148, 300));
+    aW -= btnW + gap;   // the buttons are one full-height column on the right edge
+    const handW = aW;
     let cardH = Math.round(clamp(h * L.cardHFrac, 56, 300));
     if (short) cardH = Math.max(cardH, 128);   // aim for the x2 art scale (a 64-px card drawn at 2x)
     cardH = Math.min(cardH, Math.floor(((handW / 4.6) * 64) / 48));
     let slotH = Math.min(Math.round(H * 0.2), Math.round(cardH * (cardH <= 120 ? 0.85 : 0.62)));
     slotH = Math.max(slotH, 44);
     const qg = Math.round(clamp(slotH * 0.07, 4, 10));
-    while (slotH > 40 && aW - (5 * Math.round(slotH * 0.75) + 4 * qg) - gap < 300) slotH -= 2;
+    const rowW = s => 7 * Math.round(s * 0.75) + 5 * qg + gap;   // 5 Quý nhân + 2 Quẻ slots
+    while (slotH > 40 && aW - rowW(slotH) - gap < 260) slotH -= 2;
     const topH = slotH + CAP;
     const handHof = c => Math.round(c * 1.2) + 4;
     const tableMin = H * 0.3;
@@ -105,16 +112,13 @@
     const bandH = Math.max(handHof(cardH), 106);
     const handY = Y0 + H - bandH;
     const hand = R(ax, handY + (bandH - handHof(cardH)), handW, handHof(cardH));
-    // buttons: top row Danh | Bo luot, bottom row Goi y | Xep, bottom-aligned with the band
-    const bx = X0 + W - btnW;
-    if (short) {   // Danh biggest on top, then Bo luot, Goi y, Xep; the column spans the full height beside hand and table
-      const sg4 = 5, rs = Math.floor((H - 4 * sg4) / 6.2), rD = H - 4 * (rs + sg4);
-      btnS = { danh: R(bx, Y0, btnW, rD), bo: R(bx, Y0 + rD + sg4, btnW, rs), goiy: R(bx, Y0 + rD + rs + 2 * sg4, btnW, rs), xep: R(bx, Y0 + rD + 2 * rs + 3 * sg4, btnW, rs), doi: R(bx, Y0 + rD + 3 * rs + 4 * sg4, btnW, rs) };
-    }
-    const r2 = clamp(Math.round(bandH * 0.4), 48, 76), r1 = clamp(bandH - r2 - 6, 52, 100), bg = 6, hw = Math.floor((btnW - bg) / 2), t3 = Math.floor((btnW - 2 * bg) / 3);
-    const by2 = Y0 + H - r2, by1 = by2 - bg - r1;
-    const qn = qnGeometry(ax, Y0, slotH, qg);
-    const oppSeat = R(ax + qn.row.w + gap, Y0, aW - qn.row.w - gap, topH);
+    // buttons, one column: Đánh (biggest) + Gợi ý side by side on top, Bỏ lượt in the middle, Đổi below; >= BGAP clear around Bỏ lượt
+    const bx = X0 + W - btnW, bs = 6, gw = Math.max(48, Math.round(btnW * 0.42)), dw = btnW - gw - bs;
+    const rs = clamp(Math.round(H * 0.2), 48, 100);
+    const rD = clamp(H - 2 * rs - 2 * BGAP, 56, 220), gB = clamp(Math.floor((H - rD - 2 * rs) / 2), BGAP, 56), bY = Y0 + Math.max(0, Math.round((H - rD - 2 * rs - 2 * gB) / 2));
+    const btnS = { danh: R(bx, bY, dw, rD), goiy: R(bx + dw + bs, bY, gw, rD), bo: R(bx, bY + rD + gB, btnW, rs), doi: R(bx, bY + rD + rs + 2 * gB, btnW, rs) };
+    const qn = qnGeometry(ax, Y0, slotH, qg), que = queGeometry(ax + qn.row.w + gap, Y0, qn.slotW, slotH, qg);
+    const oppX = que.row.x + que.row.w + gap, oppSeat = R(oppX, Y0, ax + aW - oppX, topH);
     const og = oppGeometry(oppSeat, slotH, 'landscape');
     // table (stage) with the draw pile in its own recessed column on the right, outside the table
     const tY = Y0 + topH + gap, tH = handY - gap - tY;
@@ -144,9 +148,9 @@
     const diemBox = R(comboBox.x, by, bw, bh), theBox = R(comboBox.x + inner - bw, by, bw, bh);
     const menu = R(X0 + ip, Y0 + H - ip - menuH + 4, inner, menuH);
     return {
-      mode: 'landscape', panel: panel, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, deckCol: deckCol, table: table, tablePlay: sg.tablePlay,
+      mode: 'landscape', panel: panel, qnRow: qn.row, qnSlot: qn.slots, queRow: que.row, queSlot: que.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, deckCol: deckCol, table: table, tablePlay: sg.tablePlay,
       pot: sg.pot, ribbon: sg.ribbon, comboBox: comboBox, diemBox: diemBox, theBox: theBox, dbBox: info.dbBox, hand: hand,
-      btn: btnS ? Object.assign(btnS, { menu: menu }) : { danh: R(bx, by1, hw, r1), bo: R(bx + hw + bg, by1, btnW - hw - bg, r1), goiy: R(bx, by2, t3, r2), xep: R(bx + t3 + bg, by2, t3, r2), doi: R(bx + 2 * (t3 + bg), by2, btnW - 2 * (t3 + bg), r2), menu: menu },
+      btn: Object.assign(btnS, { menu: menu }),
       cardH: cardH, tableCardH: sg.tableCardH, compact: sg.compact, oppCardH: og.oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), info: info, plateW: og.plateW, caption: CAP,
     };
   }
@@ -154,9 +158,9 @@
   function layoutPortrait(w, h, X0, Y0, W, H, gap) {
     const tb = Math.round(clamp(H * 0.115, 66, 104));
     const qg = Math.max(4, Math.round(gap * 0.8));
-    let slotW = Math.floor((W - 5 * qg) / 6), slotH = Math.min(Math.round((slotW * 4) / 3), Math.round(H * 0.125));
+    let slotW = Math.floor((W - 6 * qg) / 7), slotH = Math.min(Math.round((slotW * 4) / 3), Math.round(H * 0.125));   // 5 Quý nhân + 2 Quẻ in one row
     slotW = Math.round(slotH * 0.75);
-    const oppH = Math.round(clamp(H * 0.1, 58, 110)), comboH = Math.round(clamp(H * 0.095, 58, 96)), btnH = Math.round(clamp(H * 0.075, 52, 66));
+    const oppH = Math.round(clamp(H * 0.1, 58, 110)), comboH = Math.round(clamp(H * 0.095, 58, 96)), bh1 = Math.round(clamp(H * 0.065, 48, 60)), btnH = 2 * bh1 + BGAP;   // two button rows with a clear gap
     let cardH = Math.min(Math.round(h * CFG.LAYOUT.cardHFrac), Math.floor(((W / 4.6) * 64) / 48));
     const handHof = c => Math.round(c * 1.2) + 4;
     const qnH = slotH + CAP;
@@ -166,17 +170,19 @@
     const handH = handHof(cardH);
     let y = Y0;
     const topBar = R(X0, y, W, tb); y += tb + gap;
-    const qn = qnGeometry(X0, y, slotH, qg);
-    const deck = R(X0 + 5 * (slotW + qg), y, slotW, slotH);
+    const rowX = X0 + Math.max(0, Math.floor((W - 7 * slotW - 6 * qg) / 2));
+    const qn = qnGeometry(rowX, y, slotH, qg), que = queGeometry(rowX + 5 * (slotW + qg), y, slotW, slotH, qg);
     y += qnH + gap;
     const oppSeat = R(X0, y, W, oppH); y += oppH + gap;
     const tableH = H - (y - Y0) - comboH - handH - btnH - 3 * gap;
-    const table = R(X0, y, W, tableH); y += tableH + gap;
+    const dH = Math.round(clamp(Math.min(tableH * 0.34, cardH * 0.5), 44, 110)), dW = Math.round(dH * 0.75), colW = dW + Math.round(clamp(dW * 0.35, 12, 22));
+    const table = R(X0, y, W - colW - gap, tableH), deckCol = R(table.x + table.w + gap, y, colW, tableH);
+    const deck = R(deckCol.x + (colW - dW) / 2, deckCol.y + Math.round((tableH - dH) / 2) - 6, dW, dH);
+    y += tableH + gap;
     const comboBox = R(X0, y, W, comboH); y += comboH + gap;
     const hand = R(X0, y, W, handH); y += handH + gap;
-    const bg = 6, bw = Math.floor((W - 4 * bg) / 5), by = Y0 + H - btnH;
-    const btn = {};
-    ['danh', 'bo', 'goiy', 'xep', 'doi'].forEach((id, i) => { btn[id] = R(X0 + i * (bw + bg), by, i === 4 ? W - 4 * (bw + bg) : bw, btnH); });
+    const bg = 6, by = Y0 + H - btnH, dw = Math.round((W - bg) * 0.62), hw = Math.floor((W - BGAP) / 2);
+    const btn = { danh: R(X0, by, dw, bh1), goiy: R(X0 + dw + bg, by, W - dw - bg, bh1), bo: R(X0, by + bh1 + BGAP, hw, bh1), doi: R(X0 + hw + BGAP, by + bh1 + BGAP, W - hw - BGAP, bh1) };
     const mS = 48;
     btn.menu = R(topBar.x + topBar.w - mS - 6, topBar.y + Math.round((tb - mS) / 2), mS, mS);
     const og = oppGeometry(oppSeat, oppH, 'portrait');
@@ -186,7 +192,7 @@
     const diemBox = R(comboBox.x + comboBox.w - rightW - 6, comboBox.y + 5, bw2, boxH);
     const theBox = R(comboBox.x + comboBox.w - 6 - bw2, comboBox.y + 5, bw2, boxH);
     return {
-      mode: 'portrait', topBar: topBar, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, table: table, tablePlay: sg.tablePlay,
+      mode: 'portrait', topBar: topBar, qnRow: qn.row, qnSlot: qn.slots, queRow: que.row, queSlot: que.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, deckCol: deckCol, table: table, tablePlay: sg.tablePlay,
       pot: sg.pot, ribbon: sg.ribbon, comboBox: comboBox, diemBox: diemBox, theBox: theBox, dbBox: topBar, hand: hand, btn: btn,
       cardH: cardH, tableCardH: sg.tableCardH, compact: sg.compact, oppCardH: og.oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), plateW: og.plateW, caption: CAP,
     };
@@ -202,8 +208,9 @@
     const min = o.min || 10;
     size = Math.max(min, Math.round(size * (o.raw ? 1 : UI))); str = String(str);
     if (o.maxW) {
-      while (size > min && A().textWidth(str, size) > o.maxW) size--;
-      if (A().textWidth(str, size) > o.maxW) {
+      const floor = o.fit ? 5 : Math.min(min, 7);   // shrink to fit first; "…" only as a last resort (never with fit)
+      while (size > floor && A().textWidth(str, size) > o.maxW) size--;
+      if (!o.fit && A().textWidth(str, size) > o.maxW) {
         while (str.length > 1 && A().textWidth(str + '…', size) > o.maxW) str = str.slice(0, -1);
         str += '…';
       }
@@ -272,6 +279,7 @@
     const fw = Math.round((r.w - 2) * clamp(frac, 0, 1));
     if (fw > 0) fillR(ctx, frac >= 1 ? PAL.vangKim : PAL.laXanh, r.x + 1, r.y + 1, fw, r.h - 2);
   }
+  const BTN_FACE = { danh: PAL.laXanh, goiy: PAL.menLam, doi: PAL.menLam };   // Bỏ lượt keeps the plain đỏ son face so it stands apart
   function btnState(vm, id, enabled) {
     if (!enabled) return 'disabled';
     if (vm.downBtn === id) return 'down';
@@ -329,6 +337,9 @@
         [[0, -2], [-1, -1], [0, -1], [1, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [0, 2]].forEach(o => fillR(ctx, PAL.vangKim, cx + o[0] * q - q / 2, cy + o[1] * q - q / 2, q, q, 0.2));
       }
     });
+    r.queSlot.forEach(s => A().slot(ctx, s, { radius: 4 }));
+    const qc = r.queRow;
+    txt(ctx, TX.hud.que || 'Quẻ', qc.x + qc.w / 2, qc.y + qc.h - CAP / 2 + 3, clamp(r.qnH * 0.11, 11, 17), { align: 'center', alpha: 0.9, maxW: qc.w, shadow: PAL.denSon, raw: true, min: 11 });
     const n = (vm.qn || []).filter(Boolean).length, c = r.qnRow;
     txt(ctx, TX.hud.qn + ' ' + n + '/' + r.qnSlot.length, c.x + c.w / 2, c.y + c.h - CAP / 2 + 3, clamp(r.qnH * 0.11, 11, 17), { align: 'center', alpha: 0.9, maxW: c.w, shadow: PAL.denSon, raw: true, min: 11 });
   }
@@ -338,7 +349,7 @@
       const c = r.chips[k], pad = Math.max(3, Math.round(c.h * 0.07)), turn = vm.turn === si.seat && vm.live;
       lacquer(ctx, c, PAL.nauCanhGian, { off: 3, radius: 5 });
       if (turn) { const q = 2; fillR(ctx, PAL.vangKim, c.x, c.y, c.w, q); fillR(ctx, PAL.vangKim, c.x, c.y + c.h - q, c.w, q); fillR(ctx, PAL.vangKim, c.x, c.y, q, c.h); fillR(ctx, PAL.vangKim, c.x + c.w - q, c.y, q, c.h); }
-      const ps = Math.min(c.h - 2 * pad, Math.round(c.w * 0.38)), pr = blit(ctx, A().portrait(si.id), c.x + pad, c.y + pad, c.h - 2 * pad, ps, 'left');
+      const ps = Math.min(c.h - 2 * pad, Math.round(c.w * 0.42)), pr = blit(ctx, A().portrait(si.id), c.x + pad, c.y + pad, c.h - 2 * pad, ps, 'left');
       const tx = c.x + pad * 2 + pr.w, tw = c.x + c.w - pad - tx, ns = Math.round(clamp(c.h * 0.2, 11, 17)), bs = Math.round(clamp(c.h * 0.16, 10, 15));
       const rows = si.passed ? 3 : 2, step = (c.h - 2 * pad) / rows;
       txt(ctx, si.name, tx, c.y + pad + step * 0.5, ns, { maxW: tw, color: PAL.vangKim, min: 10, raw: true });
@@ -416,7 +427,7 @@
       A().panel(ctx, b.r, { fill: PAL.denSon, border: PAL.vangKim, shadow: false, radius: 4 });
       const s2 = Math.min(Math.round(20 * u), b.r.h - 8), iy = b.r.y + (b.r.h - s2) / 2;
       icon(ctx, b.ic, b.r.x + 6, iy, s2);
-      txt(ctx, b.t, b.r.x + 6 + s2 + 6, b.r.y + b.r.h / 2, 13 * (b.ic === 'van' ? juiced(vm, 'van') : 1), { maxW: b.r.w - s2 - 18, color: b.gold ? PAL.vangKim : PAL.giayDo, min: 11 });
+      txt(ctx, b.t, b.r.x + 6 + s2 + 6, b.r.y + b.r.h / 2, 13 * (b.ic === 'van' ? juiced(vm, 'van') : 1), { maxW: b.r.w - s2 - 18, color: b.gold ? PAL.vangKim : PAL.giayDo, min: 11, fit: true });
     });
   }
 
@@ -462,7 +473,7 @@
     let sx = rx;
     stat.forEach(sv => {
       const wt = TW(sv.t, 12), isz = Math.round(16 * UI); sx -= wt;
-      txt(ctx, sv.t, sx, r1, 12 * (sv.ic === 'van' ? juiced(vm, 'van') : 1), { color: sv.c, min: 11 }); sx -= isz + 2; icon(ctx, sv.ic, sx, r1 - isz / 2, isz); sx -= 10;
+      txt(ctx, sv.t, sx, r1, 12 * (sv.ic === 'van' ? juiced(vm, 'van') : 1), { color: sv.c, min: 11, fit: true }); sx -= isz + 2; icon(ctx, sv.ic, sx, r1 - isz / 2, isz); sx -= 10;
     });
     const nx = lx + kb.w + 8, nw = sx - nx;
     txt(ctx, (vm.chang && vm.chang.name || '') + ' · ' + TX.hud.ban + ' ' + ((vm.ban && vm.ban.idx || 0) + 1) + '/3', nx, r1, 13, { color: PAL.vangKim, maxW: nw, min: 10 });
@@ -496,19 +507,22 @@
       for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? s * 0.45 : s; ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); }
       ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
     }
-    if (n === 1) txt(ctx, TX.stamp.baiXau + ' ×' + CFG.XAU_X, x0 + 3 * s * 2.2 + 4, cy, clamp(s + 3, 10, 16), { color: PAL.giayDo, min: 9, raw: true });
+    const fs = clamp(s + 3, 10, 16), lx = x0 + 3 * s * 2.2 + 2;
+    let ex = lx + txt(ctx, TX.hud.suc, lx, cy, fs, { color: PAL.giayDo, min: 9, raw: true, alpha: 0.9 });
+    if (n === 1) ex += 8 + txt(ctx, TX.stamp.baiXau + ' ×' + CFG.XAU_X, ex + 8, cy, fs, { color: PAL.vangKim, min: 9, raw: true });
+    r._suc = R(h.x, cy - s - 14, ex - h.x + 6, 2 * s + 22);   // tap target: the scene shows the tip bubble
   }
 
   function drawButtons(ctx, vm, r) {
     const en = enabledMap(vm), st = {};
     BTN_IDS.forEach(id => {
-      const label = id === 'xep' ? (vm.sortMode === 'suit' ? TX.btn.xepSuit : TX.btn.xepRank) : id === 'doi' ? TX.btn.doi + ' ' + (vm.doiLeft || 0) : TX.btn[id];
+      const label = id === 'doi' ? TX.btn.doi + ' ' + (vm.doiLeft || 0) : TX.btn[id];
       st[id] = btnState(vm, id, en[id]);
       if (id === 'menu' && r.mode === 'portrait') {
         A().button(ctx, r.btn.menu, '', st[id]);
         const m = r.btn.menu;
         blit(ctx, A().icon('menu'), m.x, m.y + (st[id] === 'down' ? 3 : 1), m.h - 4, m.w, 'center');
-      } else A().button(ctx, r.btn[id], label, st[id]);
+      } else A().button(ctx, r.btn[id], label, st[id], BTN_FACE[id] && { face: BTN_FACE[id] });
     });
     r._st = st;
   }
@@ -604,8 +618,7 @@
           if (s) { s.selected = !s.selected; s.juice && s.juice(0.6); if (TL.Audio) TL.Audio.play('select'); }
         } else if (e.type === 'up') {
           if (down && id === down) {
-            if (down === 'xep') { vm.sortMode = vm.sortMode === 'rank' ? 'suit' : 'rank'; }
-            else if (down === 'danh') say(DATA.TEXT.msg.cantBeat);
+            if (down === 'danh') say(DATA.TEXT.msg.cantBeat);
             else if (down === 'bo') say(DATA.TEXT.msg.mustBeat);
             else if (down === 'menu' && TL.Screens && TL.Screens.settings) G.setScreen('settings');
           }

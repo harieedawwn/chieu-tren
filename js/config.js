@@ -94,7 +94,7 @@
       hover: { scale: 1.12, zeta: 0.55, tilt: 10, shadow: 1.6 }, // scale-up overshoot (zeta<1), tilt deg, shadow factor
       sway: { amp: 2, rot: 1.2, speed: 1.1, phase: 0.9 },  // idle: px, deg, Hz, rad of phase offset per card index
       lift: 16,                                            // px a selected card rises
-      deal: { stagger: 0.07, fly: 0.35, flip: 0.22 },      // s per card gap, flight time, squash-flip time
+      deal: { fly: 0.22, flip: 0.18, riffle: 0.55, flicks: 30, pow: 1.4 },   // flight time, squash-flip time; riffle/flicks/pow mirror the 'shuffle' cue (audio.js): card k lands on flick k
       juice: { scale: 0.22, rot: 8, dur: 0.4, freq: 22 },  // juice(1): extra scale, deg wobble, duration, wobble Hz
       play: { fly: 0.3, step: 0.3, stepMin: 0.12, tickPitch: 1, tickStep: 0.07, slam: 0.2, hold: 0.4 },
       // fly: cards to table; step: gap between ScoreSteps (shrinks toward stepMin when many); tick pitch x(1+tickStep) per step;

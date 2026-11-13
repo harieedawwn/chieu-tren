@@ -64,7 +64,7 @@ eq([p.daily.date, p.daily.bans, p.daily.bestPot, p.daily.won], ['20261113', 3, 1
 const a = Run.create(dd.seed, dd.opts), b = Run.create(dd.seed, dd.opts); eq(a, b, 'daily runs identical'); eq(Run.shop(a).map(i => i.id), Run.shop(b).map(i => i.id), 'daily shop identical');
 
 // ---- unlocks
-p = P.empty(); eq(P.unlocked(p, 'vo_tan').ok, false, 'vo tan locked'); eq(P.unlocked(p, 'solo').ok, false, 'solo locked'); p.xp = 1000; ok(P.level(p.xp).level >= M.SOLO_LEVEL, 'level 3 reachable'); ok(P.unlocked(p, 'solo').ok, 'solo unlocked'); p.wins = 1; ok(P.unlocked(p, 'vo_tan').ok, 'vo tan unlocked');
+p = P.empty(); eq(P.unlocked(p, 'vo_tan').ok, false, 'vo tan locked'); eq(P.unlocked(p, 'solo').ok, false, 'solo locked'); ok(P.noteBan(p) === true && P.unlocked(p, 'solo').ok, 'first bàn won unlocks solo'); ok(P.noteBan(p) === false, 'only the first bàn announces'); p = P.empty(); p.xp = 1000; ok(P.level(p.xp).level >= M.SOLO_LEVEL, 'level 3 reachable'); ok(P.unlocked(p, 'solo').ok, 'solo unlocked (legacy level)'); p = P.empty(); eq(P.unlocked(p, 'solo').ok, false, 'fresh profile still locked'); p.wins = 1; ok(P.unlocked(p, 'vo_tan').ok, 'vo tan unlocked');
 
 // ---- Run: default unchanged
 const def = Run.create(7), noOpts = Run.create(7, {});

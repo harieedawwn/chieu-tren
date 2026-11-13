@@ -877,10 +877,10 @@
       ctx.fillStyle = fill; roundRect(ctx, x + bw, y + bw, w - 2 * bw, h - 2 * bw, Math.max(1, r - bw));
     });
   }
-  function button(ctx, rect, label, state) {
+  function button(ctx, rect, label, state, o) {   // o.face: idle face colour (default đỏ son)
     state = state || 'idle';
     const depth = 4, press = Math.min(CFG.MOTION.button.press, depth - 1);
-    const face = state === 'hover' ? PALN.vangKim : state === 'disabled' ? PALN.nauCanhGian : PALN.doSon;
+    const face = state === 'hover' ? PALN.vangKim : state === 'disabled' ? PALN.nauCanhGian : (o && o.face) || PALN.doSon;
     const faceH = rect.h - depth, dy = state === 'down' ? press : state === 'hover' ? 0 : 1;
     dev(ctx, function (s, q) {
       const x = q(rect.x), y = q(rect.y), w = q(rect.w), fh = q(faceH), d = q(depth), r = q(4), f = q(2);

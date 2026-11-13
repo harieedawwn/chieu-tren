@@ -1,6 +1,6 @@
 /* js/modes.js  (owner SCREENS) mode select, Khởi đầu + Chiếu picker, Cây mai. Needs screens.js (TL.Screens._u helpers), profile.js, trans.js.
  * API  TL.Screens.{modes, start, mai}  Screen objects. TL.Modes.begin({mode:'thuong'|'vo_tan', daily?, start?, chieu?}) builds the run (Profile.options -> Run.create) and goes to the table; TL.Modes.again() repeats the last begin().
- *   modes  4 big cards: Chơi thường -> start; Thử thách ngày (one try a day, begins at once); Vô tận (needs a win); Sòng bốn (needs Tiếng tăm cấp CFG.META.SOLO_LEVEL; begin({mode:'solo'}) -> Run.create seats:4, no tutorial).
+ *   modes  4 big cards: Chơi thường -> start; Thử thách ngày (one try a day, begins at once); Vô tận (needs a win); Sòng bốn (needs one bàn won, or a win / Tiếng tăm cấp CFG.META.SOLO_LEVEL from older saves; begin({mode:'solo'}) -> Run.create seats:4, no tutorial).
  *   start  enter({mode}): Khởi đầu cards (locked ones are shadows), Chiếu ladder (1..6, locked above Profile.chieuMax), Bắt đầu. Keys: left/right Khởi đầu, up/down Chiếu, enter start, esc back.
  *   mai    Cây mai: three branches of nodes drawn as a pixel plum branch; tap a node -> details + Mua; bought nodes bloom. Saves the profile after each buy.
  * Entrances stagger with outBack (reducedMotion: none). Leaving goes through TL.Trans.
@@ -52,7 +52,7 @@
         { id: 'thuong', name: t('thuong')[0], desc: t('thuong')[1], ok: true },
         { id: 'daily', name: t('daily')[0], desc: t('daily')[1], ok: da, why: da ? MT.today : MT.done },
         { id: 'vo_tan', name: t('vo_tan')[0], desc: t('vo_tan')[1], ok: vt.ok, why: MT.needWin },
-        { id: 'solo', name: t('solo')[0], desc: t('solo')[1], ok: so.ok, why: MT.needLevel.replace('%d', META().SOLO_LEVEL) },
+        { id: 'solo', name: t('solo')[0], desc: t('solo')[1], ok: so.ok, why: MT.needBan },
       ];
     }
     function lay() {

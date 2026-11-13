@@ -1,5 +1,5 @@
 /* js/main.js  (owner HUD) boot, canvas sizing, loop, input, settings, screen switching. Loads last.
- * API  TL.Game = {ctx, w, h, dpr, scale, safe, run, settings{sound,speed,scanlines,reducedMotion}, screen, setScreen(name,args), saveSettings(), applySettings(), autoResult}
+ * API  TL.Game = {ctx, w, h, dpr, scale, safe, run, settings{sound,speed,scanlines,reducedMotion,sort 'rank'|'suit'}, screen, setScreen(name,args), saveSettings(), applySettings(), autoResult}
  *   w, h = CSS px of the canvas; ctx is pre-scaled by dpr, smoothing off; scale = integer art scale from HUD.layout(w,h).cardH.
  *   setScreen('title'|'table'|'shop'|'end'|'settings'|'back', args): 'settings' opens as an overlay over the paused screen, 'back' closes it.
  *   Screen = {enter(args), exit(), update(dt), draw(ctx), pointer({type:'down'|'move'|'up', x, y, id}), key({key:'enter'|'space'|'h'|'s'|'esc'|'left'|'right'|'up'|'down'})}
@@ -13,7 +13,7 @@
   const q = new URLSearchParams(location.search);
   const Game = TL.Game = {
     ctx: null, w: 640, h: 360, dpr: 1, scale: 2, safe: { t: 0, r: 0, b: 0, l: 0 }, run: null, screen: null, overlay: null, name: '', autoResult: null,
-    settings: { sound: true, speed: 1, scanlines: false, reducedMotion: false }, paused: false, flags: { hud: q.has('hud'), auto: q.has('auto'), endless: q.has('endless'), seed: q.has('seed') ? +q.get('seed') : null },
+    settings: { sound: true, speed: 1, scanlines: false, reducedMotion: false, sort: 'rank' }, paused: false, flags: { hud: q.has('hud'), auto: q.has('auto'), endless: q.has('endless'), seed: q.has('seed') ? +q.get('seed') : null },
   };
   const guard = (fn, label) => (window.Boot ? Boot.guard(fn, label) : fn);
 
@@ -31,7 +31,7 @@
 
   // ---------------------------------------------------------------- settings
   function loadSettings() {
-    const d = { sound: true, speed: 1, scanlines: false, reducedMotion: false };
+    const d = { sound: true, speed: 1, scanlines: false, reducedMotion: false, sort: 'rank' };
     try { d.reducedMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
     let o = null;
     try { o = JSON.parse(localStorage.getItem(CFG.STORAGE.settings)); } catch (e) { o = null; }
@@ -40,6 +40,7 @@
       if (CFG.MOTION.speeds.indexOf(o.speed) >= 0) d.speed = o.speed;
       if (typeof o.scanlines === 'boolean') d.scanlines = o.scanlines;
       if (typeof o.reducedMotion === 'boolean') d.reducedMotion = o.reducedMotion;
+      if (o.sort === 'rank' || o.sort === 'suit') d.sort = o.sort;
     }
     Game.settings = d;
   }

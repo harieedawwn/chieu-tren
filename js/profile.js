@@ -1,5 +1,5 @@
 /* js/profile.js  (owner META) Tiếng tăm, Cây mai, Khởi đầu, Chiếu, Thử thách ngày. Pure logic; the only side effect is localStorage CFG.STORAGE.profile (every access in try/catch). Needs config, data, content, run.
- * A profile p is plain JSON: {v:1, xp, spent, nodes:{id:true}, best (highest Chiếu won, 0 = none), runs, wins, endless (won once), daily:{date,seed,won,bans,bestPot,chieu}|null, dailyDone:{yyyymmdd:true}}
+ * A profile p is plain JSON: {v:1, xp, spent, nodes:{id:true}, best (highest Chiếu won, 0 = none), runs, wins, endless (won once), bansWon (bàn cleared at least once, opens Sòng bốn), daily:{date,seed,won,bans,bestPot,chieu}|null, dailyDone:{yyyymmdd:true}}
  * API  TL.Profile.empty() -> p                    TL.Profile.load() -> p (never throws; bad data -> empty)      TL.Profile.save(p) -> bool       TL.Profile.get() -> shared p (loaded once)
  *      TL.Profile.level(xp) -> {level, into, need}        level 1 at 0 xp; need = xp to the next level; each level above 1 = 1 hoa mai
  *      TL.Profile.mai(p) -> hoa mai left to spend         TL.Profile.canBuy(p, id) -> {ok, why?}  why: 'owned'|'req'|'mai'|'none'     TL.Profile.buy(p, id) -> {ok, why?}
@@ -10,7 +10,8 @@
  *      TL.Profile.finish(p, run, won, date?) -> {xp, lines, level0, level1, mai, best, newBest}   adds xp, counts the run, raises best on a win at run.chieu, records the daily result when run.daily
  *      TL.Profile.dailySeed(date?) -> yyyymmdd (number)    TL.Profile.dailyOptions() -> {seed, opts}  (Mặc định, Chiếu 2, base pool, no perks: the same for everyone)
  *      TL.Profile.dailyAvailable(p, date?) -> bool        one try per day     TL.Profile.dailyShare(entry) -> string for "Sao chép kết quả"
- *      TL.Profile.unlocked(p, mode) -> {ok, need?}        mode 'thuong' | 'daily' | 'vo_tan' (needs a win) | 'solo' (Sòng bốn, needs level CFG.META.SOLO_LEVEL)
+ *      TL.Profile.unlocked(p, mode) -> {ok, need?}        mode 'thuong' | 'daily' | 'vo_tan' (needs a win) | 'solo' (Sòng bốn: bansWon > 0, or wins > 0, or level CFG.META.SOLO_LEVEL for older saves)
+ *      TL.Profile.noteBan(p) -> true the first time a bàn is cleared (Sòng bốn just unlocked; caller saves p)
  */
 (function (TL) {
   'use strict';
@@ -18,12 +19,12 @@
   const KEY = () => CFG.STORAGE.profile || 'chieutren.profile';
   const byId = id => M().TREE.find(n => n.id === id);
 
-  const empty = () => ({ v: 1, xp: 0, spent: 0, nodes: {}, best: 0, runs: 0, wins: 0, endless: false, daily: null, dailyDone: {} });
+  const empty = () => ({ v: 1, xp: 0, spent: 0, nodes: {}, best: 0, runs: 0, wins: 0, endless: false, bansWon: 0, daily: null, dailyDone: {} });
   const num = (x, d) => (typeof x === 'number' && isFinite(x) && x >= 0 ? Math.floor(x) : d);
   function sanitize(o) {
     const p = empty();
     if (!o || typeof o !== 'object') return p;
-    p.xp = num(o.xp, 0); p.spent = num(o.spent, 0); p.best = Math.min(M().CHIEU_MAX, num(o.best, 0)); p.runs = num(o.runs, 0); p.wins = num(o.wins, 0); p.endless = !!o.endless;
+    p.xp = num(o.xp, 0); p.spent = num(o.spent, 0); p.best = Math.min(M().CHIEU_MAX, num(o.best, 0)); p.runs = num(o.runs, 0); p.wins = num(o.wins, 0); p.endless = !!o.endless; p.bansWon = num(o.bansWon, 0);
     if (o.nodes && typeof o.nodes === 'object') M().TREE.forEach(n => { if (o.nodes[n.id] === true) p.nodes[n.id] = true; });
     if (o.dailyDone && typeof o.dailyDone === 'object') Object.keys(o.dailyDone).forEach(k => { if (/^\d{8}$/.test(k)) p.dailyDone[k] = true; });
     if (o.daily && typeof o.daily === 'object' && /^\d{8}$/.test(String(o.daily.date))) p.daily = { date: String(o.daily.date), seed: num(o.daily.seed, 0), won: !!o.daily.won, bans: num(o.daily.bans, 0), bestPot: num(o.daily.bestPot, 0), chieu: num(o.daily.chieu, M().DAILY_CHIEU) };
@@ -107,9 +108,11 @@
 
   function unlocked(p, mode) {
     if (mode === 'vo_tan') return p.wins > 0 || p.endless ? { ok: true } : { ok: false, need: 'win' };
-    if (mode === 'solo') return level(p.xp).level >= M().SOLO_LEVEL ? { ok: true } : { ok: false, need: 'level', level: M().SOLO_LEVEL };
+    if (mode === 'solo') return p.bansWon > 0 || p.wins > 0 || level(p.xp).level >= M().SOLO_LEVEL ? { ok: true } : { ok: false, need: 'ban' };
     return { ok: true };
   }
 
-  TL.Profile = { empty: empty, load: load, save: save, get: get, level: level, mai: mai, canBuy: canBuy, buy: buy, starts: starts, chieuMax: chieuMax, pool: pool, perks: perks, options: options, runXp: runXp, finish: finish, dailySeed: dailySeed, dailyOptions: dailyOptions, dailyAvailable: dailyAvailable, dailyShare: dailyShare, unlocked: unlocked };
+  function noteBan(p) { const first = !unlocked(p, 'solo').ok; p.bansWon = Math.min(1e6, (p.bansWon | 0) + 1); return first; }
+
+  TL.Profile = { empty: empty, load: load, save: save, get: get, level: level, mai: mai, canBuy: canBuy, buy: buy, starts: starts, chieuMax: chieuMax, pool: pool, perks: perks, options: options, runXp: runXp, finish: finish, dailySeed: dailySeed, dailyOptions: dailyOptions, dailyAvailable: dailyAvailable, dailyShare: dailyShare, unlocked: unlocked, noteBan: noteBan };
 })(globalThis.TL = globalThis.TL || {});

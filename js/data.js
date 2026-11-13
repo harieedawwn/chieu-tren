@@ -95,13 +95,14 @@
       target: 'Mục tiêu', diemBan: 'Tổng điểm', pot: 'Hũ', van: 'Ván', vanLeft: 'Còn %d ván',
       lixi: 'Lì xì', chang: 'Chặng', ban: 'Bàn', level: 'Cấp %d', diem: 'Điểm', the: 'Nhân',
       yourTurn: 'Lượt bạn', oppTurn: 'Đối thủ đang nghĩ', oppCards: 'Còn %d lá', oppHeo: 'Heo: %d', chipCards: '%d lá', chipHeo: '%d heo', chipBo: 'Bỏ',
-      lead: 'Đi trước', house: 'Luật nhà', qn: 'Quý nhân', que: 'Quẻ', x2: '×2',
+      lead: 'Đi trước', house: 'Luật nhà', qn: 'Quý nhân', que: 'Quẻ', x2: '×2', suc: 'Sức bài',
+      sucTip: ['', 'Bài xấu: ăn hũ được ×%s Nhân.', 'Bài thường.', 'Bài đẹp.'],
     },
     kind: { nho: 'Bàn nhỏ', lon: 'Bàn lớn', trum: 'Bàn trùm' },
     stamp: {
       chat: 'Chặt!', baiXau: 'Bài xấu', anVong: 'Ăn hũ.', thoiHeo: 'Thối heo.', thoiHeoN: 'Thối %d heo.',
       cong: 'Cóng.', veNhat: 'Về nhất.', toiTrang: 'Tới trắng.', boLuot: 'Bỏ lượt.',
-      thua: 'Thua ván.', quaBan: 'Qua bàn.', heoVo: 'Heo đất vỡ.', thayBoi: 'Lật bài.',
+      thua: 'Thua ván.', quaBan: 'Qua bàn.', soloOpen: 'Mở khoá: Sòng bốn', heoVo: 'Heo đất vỡ.', thayBoi: 'Lật bài.',
     },
     payout: {
       title: 'Qua bàn', base: '%s', unused: 'Ván còn dư ×%d', khongDoi: 'Không đổi bài ×%d', interest: 'Lãi', total: 'Tổng', next: 'Vào Chợ Tết',
@@ -140,7 +141,7 @@
     menu: { title: 'Menu', resume: 'Tiếp tục', settings: 'Cài đặt', quit: 'Về màn đầu' },
     settings: {
       title: 'Cài đặt', sound: 'Âm thanh', speed: 'Tốc độ', scanlines: 'Scanlines',
-      reduced: 'Giảm chuyển động', full: 'Toàn màn hình', fullNo: 'Thêm vào Màn hình chính để chơi toàn màn hình', fullIn: 'Đang chạy toàn màn hình.', inst: 'Cài ứng dụng', instGo: 'Cài', instIos: 'Bấm Chia sẻ rồi Thêm vào Màn hình chính.', instDone: 'Đã cài ứng dụng.', instMenu: 'Dùng menu trình duyệt để cài ứng dụng.', on: 'Bật', off: 'Tắt', close: 'Đóng', home: 'Về màn chính', tut: 'Hướng dẫn', tutGo: 'Chơi lại',
+      sort: 'Xếp bài', sortRank: 'Theo số', sortSuit: 'Theo chất', reduced: 'Giảm chuyển động', full: 'Toàn màn hình', fullNo: 'Thêm vào Màn hình chính để chơi toàn màn hình', fullIn: 'Đang chạy toàn màn hình.', inst: 'Cài ứng dụng', instGo: 'Cài', instIos: 'Bấm Chia sẻ rồi Thêm vào Màn hình chính.', instDone: 'Đã cài ứng dụng.', instMenu: 'Dùng menu trình duyệt để cài ứng dụng.', on: 'Bật', off: 'Tắt', close: 'Đóng', home: 'Về màn chính', tut: 'Hướng dẫn', tutGo: 'Chơi lại',
     },
     msg: {
       hintNone: 'Không có bài nào đè được.', illegal: 'Bài này không hợp lệ.', cantBeat: 'Chưa đủ lớn.',

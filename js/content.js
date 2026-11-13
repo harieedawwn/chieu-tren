@@ -202,7 +202,7 @@
     TRO_SAO: 2, TRO_SLOTS: 4,          // Học trò
     REROLL_OFF: 1,                     // perk: first Đổi hàng of each shop is cheaper
     DAILY_CHIEU: 2,
-    SOLO_LEVEL: 3,                     // Sòng bốn unlocks at this Tiếng tăm level (used by the mode screen)
+    SOLO_LEVEL: 3,                     // legacy: older saves at this Tiếng tăm level keep Sòng bốn; new rule = win one bàn (Profile.noteBan)
     // Quý nhân: 14 in the starting pool, the other 14 in three tree groups; Quẻ: 3 + 3; Báu vật: none until the tree gives them
     POOL: {
       qn: ['ba_ban_xoi', 'ong_do', 'chu_xe_om', 'co_hang_xom', 'thay_boi', 'thang_ban_than', 'heo_dat', 'co_giao', 'anh_shipper', 'ba_ve_so', 'thang_em', 'chu_ba_gac', 'thang_chau', 'chu_tho_may'],
@@ -233,7 +233,7 @@
     title: 'Chọn cách chơi', back: 'Quay lại', go: 'Bắt đầu', lock: 'Khóa', maiBtn: 'Cây mai', chieuLabel: 'Chiếu', startLabel: 'Khởi đầu',
     thuong: ['Chơi thường', 'Ba chặng, chín bàn, tới Mùng Một.'], daily: ['Thử thách ngày', 'Cùng một ván cho mọi người, mỗi ngày một lượt.'],
     vo_tan: ['Vô tận', 'Vào thẳng chặng 4 trở đi, không có điểm dừng.'], solo: ['Sòng bốn', 'Bốn người một chiếu.'],
-    needWin: 'Thắng một ván để mở', needLevel: 'Tiếng tăm cấp %d để mở', soon: 'Sắp có', done: 'Hôm nay đã chơi', today: 'Mỗi ngày một lượt',
+    needWin: 'Thắng trọn một lần để mở.', needBan: 'Thắng 1 bàn để mở.', soon: 'Sắp có', done: 'Hôm nay đã chơi', today: 'Mỗi ngày một lượt',
     lockStart: 'Mở ở Cây mai', hold: 'Giữ lại', unhold: 'Bỏ giữ', hint2: 'Chạm một nút để xem.', lockChieu: 'Thắng Chiếu trước để mở', hint: 'Vuốt hoặc phím mũi tên để chọn.',
     mai: { title: 'Cây mai', have: 'Hoa mai: %d', cost: 'Tốn %d', buy: 'Mua', owned: 'Đã nở', need: 'Cần nút trước', poor: 'Thiếu hoa mai', lvl: 'Tiếng tăm cấp %d' },
     end: { xp: 'Tiếng tăm', lvUp: 'Lên cấp %d', mai: 'Nhận %d hoa mai', share: 'Sao chép kết quả', copied: 'Đã chép', newBest: 'Chiếu mới mở' },
