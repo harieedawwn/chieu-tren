@@ -31,7 +31,8 @@
     const pad = Math.round(clamp(Math.min(w, h) * 0.016, 4, 14)), gap = pad;
     const X0 = safe.l + pad, X1 = w - safe.r - pad, Y0 = safe.t + pad, Y1 = h - safe.b - pad;
     const W = X1 - X0, H = Y1 - Y0;
-    return portrait ? layoutPortrait(w, h, X0, Y0, W, H, gap) : layoutLandscape(w, h, X0, Y0, W, H, gap);
+    const L = portrait ? layoutPortrait(w, h, X0, Y0, W, H, gap) : layoutLandscape(w, h, X0, Y0, W, H, gap);
+    L.chips = chipRects(L.oppSeat, gap); return L;
   }
 
   function qnGeometry(x, y, slotH, g) {
@@ -73,6 +74,11 @@
     const fanH = Math.round(oppCardH * 1.2) + 4;
     const oppHand = R(oppSeat.x + plateW + gapX, oppSeat.y + Math.max(0, (oppSeat.h - 4 - fanH) / 2), fanW, fanH);
     return { plate: plate, plateW: plateW, oppCardH: oppCardH, oppHand: oppHand };
+  }
+
+  function chipRects(seat, gap) {   // 4-seat table: three opponent chips side by side in the opponent strip
+    const g = Math.max(3, Math.round(gap * 0.6)), cw = Math.floor((seat.w - 2 * g) / 3);
+    return [0, 1, 2].map(i => R(seat.x + i * (cw + g), seat.y, cw, seat.h - 4));
   }
 
   function layoutLandscape(w, h, X0, Y0, W, H, gap) {
@@ -327,7 +333,24 @@
     txt(ctx, TX.hud.qn + ' ' + n + '/' + r.qnSlot.length, c.x + c.w / 2, c.y + c.h - CAP / 2 + 3, clamp(r.qnH * 0.11, 11, 17), { align: 'center', alpha: 0.9, maxW: c.w, shadow: PAL.denSon, raw: true, min: 11 });
   }
 
+  function drawChips(ctx, vm, r) {   // 4 seats: portrait, name, cards left / heo, 'Bỏ' once out of the vòng, gold frame on whose turn it is
+    (vm.seatInfo || []).forEach((si, k) => {
+      const c = r.chips[k], pad = Math.max(3, Math.round(c.h * 0.07)), turn = vm.turn === si.seat && vm.live;
+      lacquer(ctx, c, PAL.nauCanhGian, { off: 3, radius: 5 });
+      if (turn) { const q = 2; fillR(ctx, PAL.vangKim, c.x, c.y, c.w, q); fillR(ctx, PAL.vangKim, c.x, c.y + c.h - q, c.w, q); fillR(ctx, PAL.vangKim, c.x, c.y, q, c.h); fillR(ctx, PAL.vangKim, c.x + c.w - q, c.y, q, c.h); }
+      const ps = Math.min(c.h - 2 * pad, Math.round(c.w * 0.38)), pr = blit(ctx, A().portrait(si.id), c.x + pad, c.y + pad, c.h - 2 * pad, ps, 'left');
+      const tx = c.x + pad * 2 + pr.w, tw = c.x + c.w - pad - tx, ns = Math.round(clamp(c.h * 0.2, 11, 17)), bs = Math.round(clamp(c.h * 0.16, 10, 15));
+      const rows = si.passed ? 3 : 2, step = (c.h - 2 * pad) / rows;
+      txt(ctx, si.name, tx, c.y + pad + step * 0.5, ns, { maxW: tw, color: PAL.vangKim, min: 10, raw: true });
+      const lab = TX.hud.chipCards.replace('%d', si.count) + (si.heo != null ? ' · ' + TX.hud.chipHeo.replace('%d', si.heo) : '');
+      let size = bs; while (size > 9 && A().textWidth(lab, size) + size * 1.1 > tw) size--;
+      const b = A().badgeSize(lab, size, {}); A().badge(ctx, lab, tx + Math.min(b.w, tw) / 2, c.y + pad + step * 1.5, { size: size, fill: PAL.denSon, ink: PAL.giayDo, edge: PAL.vangKim, shadow: false, bw: 1, minW: Math.min(b.w, tw) });
+      if (si.passed) chip(ctx, TX.hud.chipBo, tx, c.y + pad + step * 2.5, bs, { raw: true, left: true, fill: PAL.doSon, ink: PAL.giayDo });
+    });
+  }
+
   function drawOppSeat(ctx, vm, r) {
+    if (vm.seats === 4 && vm.seatInfo) return drawChips(ctx, vm, r);
     const pl = r.oppPlate;
     lacquer(ctx, pl, PAL.nauCanhGian, { off: 4, radius: 5 });
     const pad = Math.round(clamp(pl.h * 0.07, 5, 12));

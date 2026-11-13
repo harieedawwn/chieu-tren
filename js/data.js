@@ -94,7 +94,7 @@
       ruleCard: 'Chạm để bắt đầu', ruleClose: 'Chạm để đóng', ruleKick: 'Bàn trùm · Luật nhà',
       target: 'Mục tiêu', diemBan: 'Tổng điểm', pot: 'Hũ', van: 'Ván', vanLeft: 'Còn %d ván',
       lixi: 'Lì xì', chang: 'Chặng', ban: 'Bàn', level: 'Cấp %d', diem: 'Điểm', the: 'Nhân',
-      yourTurn: 'Lượt bạn', oppTurn: 'Đối thủ đang nghĩ', oppCards: 'Còn %d lá', oppHeo: 'Heo: %d',
+      yourTurn: 'Lượt bạn', oppTurn: 'Đối thủ đang nghĩ', oppCards: 'Còn %d lá', oppHeo: 'Heo: %d', chipCards: '%d lá', chipHeo: '%d heo', chipBo: 'Bỏ',
       lead: 'Đi trước', house: 'Luật nhà', qn: 'Quý nhân', que: 'Quẻ', x2: '×2',
     },
     kind: { nho: 'Bàn nhỏ', lon: 'Bàn lớn', trum: 'Bàn trùm' },
@@ -134,6 +134,8 @@
       thoi: 'Thối heo: thua mà còn heo thì bị phạt, người thắng được nhân.',
       cong: 'Cóng: thua mà chưa đánh lá nào thì bị nhân đôi.',
       toiTrang: 'Tới trắng: có tứ quý 2 ngay lúc chia là thắng liền.',
+      sonBon: 'Bàn bốn người: bỏ lượt là ra khỏi vòng, ai còn lại cuối cùng ăn hũ và đi trước. Ai hết bài trước thì về nhất và thu thưởng của cả ba.',
+      giaoThua: 'Sòng Giao thừa: trùm kéo hai người họ hàng vào chiếu. Luật nhà của trùm áp cho cả bàn.',
     },
     menu: { title: 'Menu', resume: 'Tiếp tục', settings: 'Cài đặt', quit: 'Về màn đầu' },
     settings: {

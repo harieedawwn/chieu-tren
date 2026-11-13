@@ -1,7 +1,7 @@
 /* js/run.js  (owner BALANCE) run state, bàn flow, payout, shop, save. Pure logic, no DOM. Needs config, data, rules, scoring.
  * API  (RunState is plain JSON, SPEC §4)
  *   TL.Run.create(seed, opts?) -> run     new run at chặng 1 bàn 1, phase 'ban'. opts (all optional, from TL.Profile.options): {start:'mac_dinh'|'ngheo'|'cung'|'choi'|'tro'|'loc', chieu:1-6, perks:{doi1,giu,lai,reroll}, seats:2|4, pool:{qn:[ids],que:[ids],bau:[ids]}, daily:true}
- *        run.seats (2 default, 4 = Sòng bốn: startVan deals CFG.HAND_SIZE_4 to 4 seats, BanInfo.seats), run.start, run.chieu, run.perk, run.pool (absent = every card), run.qnMax (slots usable, 5 or 4 for 'tro'), run.tgtX, run.laiMax, run.boss2 (second house rule of the chặng-3 trùm, Chiếu 5+), run.big[chang] (house rule on bàn lớn, Chiếu 6), run.held (item kept by the giữ-đồ perk)
+ *        BanInfo.seats/kin/giaoThua (4 seats at the chặng-3 trùm = Sòng Giao thừa, kin = 2 họ hàng ids; every bàn in Sòng bốn); run.seats (2 default, 4 = Sòng bốn: startVan deals CFG.HAND_SIZE_4 to 4 seats, BanInfo.seats), run.start, run.chieu, run.perk, run.pool (absent = every card), run.qnMax (slots usable, 5 or 4 for 'tro'), run.tgtX, run.laiMax, run.boss2 (second house rule of the chặng-3 trùm, Chiếu 5+), run.big[chang] (house rule on bàn lớn, Chiếu 6), run.held (item kept by the giữ-đồ perk)
  *   TL.Run.doiMax(run) -> n               Lượt đổi at the start of the current bàn (start 'choi' 0, Chiếu 6 -1, perk doi1 +1 on the first bàn of a chặng)
  *   TL.Run.interestMax(run) -> n          cap on Lãi (CFG.INTEREST_MAX + perk lai + start ngheo, Chiếu 4+ -2)
  *   TL.Run.hold(run, i) -> {ok, why?}     perk giu: mark shop item i (not a pack) to be offered again, unsold, in the next shop; calling it again on the same item clears it
@@ -85,12 +85,14 @@
     const hid2 = boss && run.chang === 2 && !run.endless && run.boss2 ? run.boss2 : null, h2 = hid2 ? D.HOUSE_RULES[hid2] : null;
     const e = run.chang < 3 ? 1 : Math.pow(CFG.ENDLESS.TARGET_X, run.chang - 2);
     const tx = (run.chieu >= 2 ? CFG.META.CHIEU2_TGT_X : 1) * (run.tgtX || 1), target = Math.round((run.chang < 3 ? CFG.TARGETS[run.chang][run.ban] : CFG.TARGETS[2][run.ban] * e) * tx / 10) * 10;
+    const seats = run.seats === 4 || (boss && run.chang === 2 && !run.endless) ? 4 : 2, oppId = boss && h ? h.id : b.id;
+    const kin = D.BOSS_IDS.filter(id => id !== oppId), kinR = kin.length ? (run.chang + run.ban) % kin.length : 0, kinIds = kin.length >= 2 ? [kin[kinR], kin[(kinR + 1) % kin.length]] : kin;
     const vanMax = ((h && h.mods.twoVans) || (h2 && h2.mods.twoVans) ? CFG.HOUSE2.TWO_VANS : CFG.VAN_PER_BAN) + (run.vanExtra || 0);
     return {
       chang: run.chang, changName: run.chang < 3 ? c.name : T.end.endlessChang.replace('%d', run.chang + 1), ban: run.ban, kind: b.kind, name: boss && h ? h.name : b.name, opp: boss && h ? h.id : b.id, tag: boss && h ? T.hud.house : b.tag, house: hid, house2: hid2,
       rule: h ? { id: h.id, name: h.name, quote: h.quote, short: h.short, long: h.long } : null, rule2: h2 ? { id: h2.id, name: h2.name, quote: h2.quote, short: h2.short, long: h2.long } : null, mods: Object.assign({}, h ? h.mods : {}, h2 ? h2.mods : {}),
       target: target, aiLevel: run.chieu >= 3 ? CFG.AI_BY_CHANG[2] : CFG.AI_BY_CHANG[Math.min(run.chang, 2)], vanMax: vanMax,
-      vanUsed: run.vanUsed, vanLeft: vanMax - run.vanUsed, seats: run.seats || 2, diem: run.diemBan, last: run.chang === 2 && run.ban === 2 && !run.endless,
+      vanUsed: run.vanUsed, vanLeft: vanMax - run.vanUsed, seats: seats, kin: seats === 4 ? kinIds : [], giaoThua: seats === 4 && run.seats !== 4, diem: run.diemBan, last: run.chang === 2 && run.ban === 2 && !run.endless,
     };
   }
 
@@ -102,7 +104,7 @@
     run.van = { stack: 0, oppTake: 0 };
     if (typeof run.doi !== 'number') run.doi = doiMax(run);
     const st = TL.Rules.newVan({
-      rng: rng, seats: run.seats === 4 ? 4 : 2, handSize: run.seats === 4 ? CFG.HAND_SIZE_4 : CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: run.qn.some(q => q && q.id === 'vua_bai') ? Object.assign({}, b.mods, { passMax: CFG.BAU.VUA_BAI_PASSES }) : b.mods,
+      rng: rng, seats: b.seats, handSize: b.seats === 4 ? CFG.HAND_SIZE_4 : CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: run.qn.some(q => q && q.id === 'vua_bai') ? Object.assign({}, b.mods, { passMax: CFG.BAU.VUA_BAI_PASSES }) : b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
     });
     run.van.suc = TL.AI.strength(st.hands[0]); run.van.xau = run.van.suc === 1;

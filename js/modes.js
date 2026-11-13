@@ -1,6 +1,6 @@
 /* js/modes.js  (owner SCREENS) mode select, Khởi đầu + Chiếu picker, Cây mai. Needs screens.js (TL.Screens._u helpers), profile.js, trans.js.
  * API  TL.Screens.{modes, start, mai}  Screen objects. TL.Modes.begin({mode:'thuong'|'vo_tan', daily?, start?, chieu?}) builds the run (Profile.options -> Run.create) and goes to the table; TL.Modes.again() repeats the last begin().
- *   modes  4 big cards: Chơi thường -> start; Thử thách ngày (one try a day, begins at once); Vô tận (needs a win); Sòng bốn (needs Tiếng tăm cấp CFG.META.SOLO_LEVEL, table arrives in step 9: shows "Sắp có").
+ *   modes  4 big cards: Chơi thường -> start; Thử thách ngày (one try a day, begins at once); Vô tận (needs a win); Sòng bốn (needs Tiếng tăm cấp CFG.META.SOLO_LEVEL; begin({mode:'solo'}) -> Run.create seats:4, no tutorial).
  *   start  enter({mode}): Khởi đầu cards (locked ones are shadows), Chiếu ladder (1..6, locked above Profile.chieuMax), Bắt đầu. Keys: left/right Khởi đầu, up/down Chiếu, enter start, esc back.
  *   mai    Cây mai: three branches of nodes drawn as a pixel plum branch; tap a node -> details + Mua; bought nodes bloom. Saves the profile after each buy.
  * Entrances stagger with outBack (reducedMotion: none). Leaving goes through TL.Trans.
@@ -17,10 +17,11 @@
     const g = G(), p = P(); let seed, o;
     if (c.daily) { const d = TL.Profile.dailyOptions(); seed = d.seed; o = d.opts; }
     else { o = TL.Profile.options(p, { start: c.start, chieu: c.chieu }); seed = g.flags.seed != null ? g.flags.seed : undefined; }
+    if (c.mode === 'solo') o = Object.assign({}, o, { seats: 4 });
     const run = TL.Run.create(seed, o);
     if (c.mode === 'vo_tan') { run.phase = 'won'; TL.Run.continueEndless(run); }
     g.run = run; last = c;
-    if (!c.daily && c.mode !== 'vo_tan' && TL.Tutorial && !g.flags.auto && !TL.Tutorial.done()) TL.Tutorial.begin(run);
+    if (!c.daily && c.mode !== 'vo_tan' && c.mode !== 'solo' && TL.Tutorial && !g.flags.auto && !TL.Tutorial.done()) TL.Tutorial.begin(run);
     go('table', null, 'bai');
   }
   const again = () => { if (last && !last.daily) begin(last); else go('modes'); };
@@ -51,7 +52,7 @@
         { id: 'thuong', name: t('thuong')[0], desc: t('thuong')[1], ok: true },
         { id: 'daily', name: t('daily')[0], desc: t('daily')[1], ok: da, why: da ? MT.today : MT.done },
         { id: 'vo_tan', name: t('vo_tan')[0], desc: t('vo_tan')[1], ok: vt.ok, why: MT.needWin },
-        { id: 'solo', name: t('solo')[0], desc: t('solo')[1], ok: false, why: so.ok ? MT.soon : MT.needLevel.replace('%d', META().SOLO_LEVEL), soon: so.ok },
+        { id: 'solo', name: t('solo')[0], desc: t('solo')[1], ok: so.ok, why: MT.needLevel.replace('%d', META().SOLO_LEVEL) },
       ];
     }
     function lay() {

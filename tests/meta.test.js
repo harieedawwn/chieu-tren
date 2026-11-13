@@ -98,7 +98,7 @@ ok(!Run.ban(T(5)).house || Run.ban(T(5)).house === undefined || (T(5).ban = 1, !
 r = T(6); eq(Run.doiMax(r), CFG.DOI_PER_BAN - 1, 'chieu 6: one fewer doi'); eq(r.doi, CFG.DOI_PER_BAN - 1, 'chieu 6 run.doi');
 r = Run.create(2, { chieu: 6, start: 'choi' }); eq(Run.doiMax(r), 0, 'doi never negative');
 r = T(6); r.chang = 2; r.ban = 2; bi = Run.ban(r); ok(bi.house2, 'chieu 6 includes chieu 5');
-const st = Run.startVan(r); ok(st && st.hands.length === 2, 'startVan works with two house rules'); ok(r.seen.includes(bi.house2), 'second rule marked seen');
+const st = Run.startVan(r); ok(st && st.hands.length === 4, 'startVan works with two house rules (chặng-3 trùm = Sòng Giao thừa, 4 seats)'); ok(r.seen.includes(bi.house2), 'second rule marked seen');
 
 // ---- Run: perks
 const PK = o => Run.create(4, { perks: Object.assign({ doi1: 0, giu: 0, lai: 0, reroll: 0 }, o) });
