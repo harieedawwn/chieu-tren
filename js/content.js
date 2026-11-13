@@ -191,4 +191,63 @@
   D.TEXT.stamp.bauVat = 'Báu vật!';
   D.TEXT.payout.baNgoai = 'Bà ngoại ×%d';
   D.TEXT.msg.passMax = 'Vua Bài: hết lượt Bỏ lượt.';
+  // ---- step 6: meta (Tiếng tăm, Cây mai, Khởi đầu, Chiếu, daily) -- logic in js/profile.js
+  CFG.STORAGE.profile = 'chieutren.profile';
+  CFG.META = {
+    XP: { BAN: 20, CHAT: 5, BIG_POT: 8, WIN: 250, CHIEU_X: [1, 1, 1.25, 1.5, 1.75, 2, 2.5] },   // per bàn cleared / chặt / hũ >= mục tiêu / run won; multiplier by Chiếu (index = Chiếu)
+    LEVEL: { BASE: 120, STEP: 40 },    // xp needed for level n -> n+1 = BASE + STEP x (n-1); each level = 1 hoa mai
+    CHIEU_MAX: 6, CHIEU2_TGT_X: 1.15, CHIEU4_LAI: 2,
+    NGHEO_MONEY: 0, NGHEO_LAI: 5,      // Con nhà nghèo
+    CUNG_TGT_X: 1.15,                  // Con cưng
+    TRO_SAO: 2, TRO_SLOTS: 4,          // Học trò
+    REROLL_OFF: 1,                     // perk: first Đổi hàng of each shop is cheaper
+    DAILY_CHIEU: 2,
+    SOLO_LEVEL: 3,                     // Sòng bốn unlocks at this Tiếng tăm level (used by the mode screen)
+    // Quý nhân: 14 in the starting pool, the other 14 in three tree groups; Quẻ: 3 + 3; Báu vật: none until the tree gives them
+    POOL: {
+      qn: ['ba_ban_xoi', 'ong_do', 'chu_xe_om', 'co_hang_xom', 'thay_boi', 'thang_ban_than', 'heo_dat', 'co_giao', 'anh_shipper', 'ba_ve_so', 'thang_em', 'chu_ba_gac', 'thang_chau', 'chu_tho_may'],
+      que: ['que_doi', 'que_soi', 'que_loc'],
+      bau: [],
+    },
+    // nodes: id, branch (noi_dung | khoi_dau | tien_ich), cost in hoa mai, req (node id or null), what it gives
+    TREE: [
+      { id: 'qn_a', br: 'noi_dung', cost: 1, req: null, qn: ['dan_cho_lon', 'ong_cau_ca', 'chi_ban_hoa', 'ong_ke_toan', 'chi_hang_ca'] },
+      { id: 'qn_b', br: 'noi_dung', cost: 2, req: 'qn_a', qn: ['me_chong', 'ba_mai', 'ong_thay_tuong', 'co_ba_sai_gon', 'chu_ban_pho'] },
+      { id: 'qn_c', br: 'noi_dung', cost: 3, req: 'qn_b', qn: ['anh_bo_doi', 'ba_ngoai', 'cau_ut', 'ong_giao'] },
+      { id: 'que_a', br: 'noi_dung', cost: 2, req: null, que: ['que_gap_doi', 'que_sao', 'que_them_van'] },
+      { id: 'bau_a', br: 'noi_dung', cost: 3, req: 'qn_a', bau: ['ong_dia', 'ca_chep'] },
+      { id: 'bau_b', br: 'noi_dung', cost: 4, req: 'bau_a', bau: ['than_tai', 'tao_quan', 'vua_bai'] },
+      { id: 'kd_ngheo', br: 'khoi_dau', cost: 1, req: null, start: 'ngheo' },
+      { id: 'kd_cung', br: 'khoi_dau', cost: 2, req: null, start: 'cung' },
+      { id: 'kd_choi', br: 'khoi_dau', cost: 2, req: 'kd_ngheo', start: 'choi' },
+      { id: 'kd_tro', br: 'khoi_dau', cost: 3, req: 'kd_cung', start: 'tro' },
+      { id: 'kd_loc', br: 'khoi_dau', cost: 3, req: 'kd_choi', start: 'loc' },
+      { id: 'ti_doi', br: 'tien_ich', cost: 2, req: null, perk: 'doi1' },
+      { id: 'ti_lai', br: 'tien_ich', cost: 2, req: null, perk: 'lai' },
+      { id: 'ti_reroll', br: 'tien_ich', cost: 3, req: 'ti_lai', perk: 'reroll' },
+      { id: 'ti_giu', br: 'tien_ich', cost: 4, req: 'ti_doi', perk: 'giu' },
+    ],
+    STARTS: ['mac_dinh', 'ngheo', 'cung', 'choi', 'tro', 'loc'],
+  };
+  D.TEXT.meta = {
+    starts: {
+      mac_dinh: ['Mặc định', 'Bắt đầu như thường.'],
+      ngheo: ['Con nhà nghèo', '0 lì xì. Trần Lãi +' + CFG.META.NGHEO_LAI + '.'],
+      cung: ['Con cưng', 'Một Quý nhân hiếm ngẫu nhiên. Mục tiêu +15%.'],
+      choi: ['Dân chơi', 'Có Dân chơi Chợ Lớn. Không có Lượt đổi.'],
+      tro: ['Học trò', 'Mọi kiểu bài cấp ' + CFG.META.TRO_SAO + '. Chỉ ' + CFG.META.TRO_SLOTS + ' ô Quý nhân.'],
+      loc: ['Có lộc', '2 Quẻ ngẫu nhiên.'],
+    },
+    chieu: ['', 'Chiếu 1', 'Chiếu 2', 'Chiếu 3', 'Chiếu 4', 'Chiếu 5', 'Chiếu Trên'],
+    chieuDesc: ['', 'Luật thường.', 'Mục tiêu +15%.', 'Đối thủ luôn ở cấp cao nhất.', 'Trần Lãi −' + CFG.META.CHIEU4_LAI + '.', 'Bàn trùm cuối có hai luật nhà.', 'Bớt một Lượt đổi. Bàn lớn cũng có luật nhà.'],
+    nodes: {
+      qn_a: ['Quý nhân I', 'Thêm 5 Quý nhân vào kho.'], qn_b: ['Quý nhân II', 'Thêm 5 Quý nhân vào kho.'], qn_c: ['Quý nhân III', 'Thêm 4 Quý nhân vào kho.'],
+      que_a: ['Quẻ mới', 'Thêm 3 Quẻ vào kho.'], bau_a: ['Báu vật I', 'Thêm Ông Địa, Cá Chép.'], bau_b: ['Báu vật II', 'Thêm Thần Tài, Táo Quân, Vua Bài.'],
+      kd_ngheo: ['Con nhà nghèo', 'Mở cách bắt đầu.'], kd_cung: ['Con cưng', 'Mở cách bắt đầu.'], kd_choi: ['Dân chơi', 'Mở cách bắt đầu.'], kd_tro: ['Học trò', 'Mở cách bắt đầu.'], kd_loc: ['Có lộc', 'Mở cách bắt đầu.'],
+      ti_doi: ['Thêm lượt đổi', '+1 Lượt đổi ở bàn đầu mỗi chặng.'], ti_lai: ['Lãi dày', 'Trần Lãi +1.'], ti_reroll: ['Đổi hàng rẻ', 'Lần Đổi hàng đầu mỗi shop rẻ hơn ' + CFG.META.REROLL_OFF + '.'], ti_giu: ['Ô giữ đồ', 'Giữ một món trong shop sang shop sau.'],
+    },
+    br: { noi_dung: 'Nội dung', khoi_dau: 'Khởi đầu', tien_ich: 'Tiện ích' },
+    xp: { ban: 'Bàn vượt qua', chat: 'Chặt', bigPot: 'Hũ lớn', win: 'Thắng cả ván', chieu: 'Hệ số Chiếu' },
+    share: 'Chiếu Trên %s · Bàn %d · Hũ lớn nhất %s',
+  };
 })(globalThis.TL = globalThis.TL || {});

@@ -1,6 +1,10 @@
 /* js/run.js  (owner BALANCE) run state, bàn flow, payout, shop, save. Pure logic, no DOM. Needs config, data, rules, scoring.
  * API  (RunState is plain JSON, SPEC §4)
- *   TL.Run.create(seed) -> run            new run at chặng 1 bàn 1, phase 'ban'
+ *   TL.Run.create(seed, opts?) -> run     new run at chặng 1 bàn 1, phase 'ban'. opts (all optional, from TL.Profile.options): {start:'mac_dinh'|'ngheo'|'cung'|'choi'|'tro'|'loc', chieu:1-6, perks:{doi1,giu,lai,reroll}, pool:{qn:[ids],que:[ids],bau:[ids]}, daily:true}
+ *        run.start, run.chieu, run.perk, run.pool (absent = every card), run.qnMax (slots usable, 5 or 4 for 'tro'), run.tgtX, run.laiMax, run.boss2 (second house rule of the chặng-3 trùm, Chiếu 5+), run.big[chang] (house rule on bàn lớn, Chiếu 6), run.held (item kept by the giữ-đồ perk)
+ *   TL.Run.doiMax(run) -> n               Lượt đổi at the start of the current bàn (start 'choi' 0, Chiếu 6 -1, perk doi1 +1 on the first bàn of a chặng)
+ *   TL.Run.interestMax(run) -> n          cap on Lãi (CFG.INTEREST_MAX + perk lai + start ngheo, Chiếu 4+ -2)
+ *   TL.Run.hold(run, i) -> {ok, why?}     perk giu: mark shop item i (not a pack) to be offered again, unsold, in the next shop; calling it again on the same item clears it
  *   TL.Run.ban(run) -> BanInfo            current bàn (target, opp, luật nhà, mods, ván left)
  *   TL.Run.startVan(run, opts?) -> VanState      Rules.newVan with house mods + scoreFn bound to run; sets peek (Thầy bói)
  *   TL.Run.doiBai(run, van, selectedIds) -> {ok, events, msg}   Luot doi (run.doi per bàn, CFG.DOI_PER_BAN): swap 1-3 cards when leading; re-reads run.van.suc (Suc bai stars) and run.van.xau (Bai xau = 1 star)
@@ -30,7 +34,8 @@
     run.bosses[chang] = pool[Math.floor(rand(run) * pool.length)];
   }
 
-  function create(seed) {
+  function create(seed, opts) {
+    opts = opts || {};
     seed = (seed === undefined ? Date.now() : seed) >>> 0;
     const sao = {}; TYPES.forEach(t => { sao[t] = 1; });
     const run = {
@@ -40,20 +45,50 @@
       stats: { vans: 0, wins: 0, chat: 0, bestPlay: 0, bestPot: 0, toiTrang: 0, earned: 0 },
     };
     for (let c = 0; c < 3; c++) drawBoss(run, c);
+    applyOpts(run, opts);
     return run;
   }
+
+  const META = () => CFG.META;
+  const pickFrom = (run, arr) => arr[Math.floor(rand(run) * arr.length)];
+  function applyOpts(run, o) {
+    run.start = o.start || 'mac_dinh'; run.chieu = Math.max(1, Math.min(6, o.chieu | 0 || 1)); run.perk = Object.assign({ doi1: 0, giu: 0, lai: 0, reroll: 0 }, o.perks || {});
+    run.qnMax = CFG.SHOP.QN_SLOTS; run.tgtX = 1; run.laiMax = 0; run.held = null; run.big = [null, null, null];
+    if (o.pool) run.pool = { qn: o.pool.qn.slice(), que: o.pool.que.slice(), bau: o.pool.bau.slice() };
+    if (o.daily) run.daily = true;
+    const M = META(), st = run.start;
+    if (st === 'ngheo') { run.money = M.NGHEO_MONEY; run.laiMax = M.NGHEO_LAI; }
+    else if (st === 'cung') { const pool = qnPool(run).filter(id => D.QUY_NHAN[id].rarity === 'hiem'); if (pool.length) run.qn[0] = { id: pickFrom(run, pool), n: 0 }; run.tgtX = M.CUNG_TGT_X; }
+    else if (st === 'choi') { run.qn[0] = { id: 'dan_cho_lon', n: 0 }; }
+    else if (st === 'tro') { TYPES.forEach(t => { run.sao[t] = M.TRO_SAO; }); run.qnMax = M.TRO_SLOTS; }
+    else if (st === 'loc') { const q = quePool(run).slice(); for (let k = 0; k < run.que.length && q.length; k++) run.que[k] = q.splice(Math.floor(rand(run) * q.length), 1)[0]; }
+    if (run.chieu >= 5) { const pool = D.BOSS_IDS.filter(id => id !== run.bosses[2]); run.boss2 = pickFrom(run, pool); }
+    if (run.chieu >= 6) for (let c = 0; c < 3; c++) { const pool = D.BOSS_IDS.filter(id => id !== run.bosses[c]); run.big[c] = pickFrom(run, pool); }
+    run.doi = doiMax(run);
+    run.seen = []; if (st === 'cung' || st === 'choi') run.qn.forEach(q => q && see(run, q.id));
+  }
+  const qnPool = run => QN_IDS.filter(id => !run.pool || run.pool.qn.includes(id));
+  const quePool = run => QUE_IDS.filter(id => !run.pool || run.pool.que.includes(id));
+  const bauPool = run => D.BAU_IDS.filter(id => !run.pool || run.pool.bau.includes(id));
+  function doiMax(run) {
+    if (run.start === 'choi') return 0;
+    return Math.max(0, CFG.DOI_PER_BAN - (run.chieu >= 6 ? 1 : 0) + (run.perk && run.perk.doi1 && run.ban === 0 && !run.endless ? 1 : 0));
+  }
+  function interestMax(run) { return Math.max(0, CFG.INTEREST_MAX + (run.laiMax || 0) + (run.perk ? run.perk.lai : 0) - (run.chieu >= 4 ? CFG.META.CHIEU4_LAI : 0)); }
+  const freeQnSlot = run => { for (let i = 0; i < (run.qnMax || CFG.SHOP.QN_SLOTS); i++) if (!run.qn[i]) return i; return -1; };
 
   function ban(run) {
     const c = D.CHANG[run.chang % 3], b = c.ban[run.ban], boss = run.ban === 2;
     if (boss && !run.bosses[run.chang]) drawBoss(run, run.chang);
-    const hid = boss ? run.bosses[run.chang] : null, h = hid ? D.HOUSE_RULES[hid] : null;
+    const hid = boss ? run.bosses[run.chang] : (run.ban === 1 && run.big && run.chang < 3 ? run.big[run.chang] : null) || null, h = hid ? D.HOUSE_RULES[hid] : null;
+    const hid2 = boss && run.chang === 2 && !run.endless && run.boss2 ? run.boss2 : null, h2 = hid2 ? D.HOUSE_RULES[hid2] : null;
     const e = run.chang < 3 ? 1 : Math.pow(CFG.ENDLESS.TARGET_X, run.chang - 2);
-    const target = Math.round((run.chang < 3 ? CFG.TARGETS[run.chang][run.ban] : CFG.TARGETS[2][run.ban] * e) / 10) * 10;
-    const vanMax = (h && h.mods.twoVans ? CFG.HOUSE2.TWO_VANS : CFG.VAN_PER_BAN) + (run.vanExtra || 0);
+    const tx = (run.chieu >= 2 ? CFG.META.CHIEU2_TGT_X : 1) * (run.tgtX || 1), target = Math.round((run.chang < 3 ? CFG.TARGETS[run.chang][run.ban] : CFG.TARGETS[2][run.ban] * e) * tx / 10) * 10;
+    const vanMax = ((h && h.mods.twoVans) || (h2 && h2.mods.twoVans) ? CFG.HOUSE2.TWO_VANS : CFG.VAN_PER_BAN) + (run.vanExtra || 0);
     return {
-      chang: run.chang, changName: run.chang < 3 ? c.name : T.end.endlessChang.replace('%d', run.chang + 1), ban: run.ban, kind: b.kind, name: h ? h.name : b.name, opp: h ? h.id : b.id, tag: h ? T.hud.house : b.tag, house: hid,
-      rule: h ? { id: h.id, name: h.name, quote: h.quote, short: h.short, long: h.long } : null, mods: h ? Object.assign({}, h.mods) : {},
-      target: target, aiLevel: CFG.AI_BY_CHANG[Math.min(run.chang, 2)], vanMax: vanMax,
+      chang: run.chang, changName: run.chang < 3 ? c.name : T.end.endlessChang.replace('%d', run.chang + 1), ban: run.ban, kind: b.kind, name: boss && h ? h.name : b.name, opp: boss && h ? h.id : b.id, tag: boss && h ? T.hud.house : b.tag, house: hid, house2: hid2,
+      rule: h ? { id: h.id, name: h.name, quote: h.quote, short: h.short, long: h.long } : null, rule2: h2 ? { id: h2.id, name: h2.name, quote: h2.quote, short: h2.short, long: h2.long } : null, mods: Object.assign({}, h ? h.mods : {}, h2 ? h2.mods : {}),
+      target: target, aiLevel: run.chieu >= 3 ? CFG.AI_BY_CHANG[2] : CFG.AI_BY_CHANG[Math.min(run.chang, 2)], vanMax: vanMax,
       vanUsed: run.vanUsed, vanLeft: vanMax - run.vanUsed, diem: run.diemBan, last: run.chang === 2 && run.ban === 2 && !run.endless,
     };
   }
@@ -61,9 +96,10 @@
   function startVan(run, opts) {
     const b = ban(run), rng = TL.makeRng((run.seed + 7919 * run.vanNo) >>> 0);
     if (b.house) see(run, b.house);
+    if (b.house2) see(run, b.house2);
     run.qn.forEach(q => q && see(run, q.id));
     run.van = { stack: 0, oppTake: 0 };
-    if (typeof run.doi !== 'number') run.doi = CFG.DOI_PER_BAN;
+    if (typeof run.doi !== 'number') run.doi = doiMax(run);
     const st = TL.Rules.newVan({
       rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: run.qn.some(q => q && q.id === 'vua_bai') ? Object.assign({}, b.mods, { passMax: CFG.BAU.VUA_BAI_PASSES }) : b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
@@ -92,7 +128,7 @@
       if (e.type === 'play' && e.seat === 0) run.stats.bestPlay = Math.max(run.stats.bestPlay, e.score.total);
       else if (e.type === 'chat' && e.seat === 0) run.stats.chat++;
       else if (e.type === 'vong') {
-        if (e.winner === 0) { run.diemBan += e.pot; run.stats.bestPot = Math.max(run.stats.bestPot, e.pot); } else run.van.oppTake = (run.van.oppTake || 0) + e.pot;
+        if (e.winner === 0) { run.diemBan += e.pot; run.stats.bestPot = Math.max(run.stats.bestPot, e.pot); if (e.pot >= ban(run).target) run.stats.bigPots = (run.stats.bigPots || 0) + 1; } else run.van.oppTake = (run.van.oppTake || 0) + e.pot;
       } else if (e.type === 'vanEnd') {
         run.lastWinner = e.winner; run.stats.vans++;
         if (e.winner === 0) run.stats.wins++;
@@ -104,7 +140,7 @@
   function endVan(run, ev) {
     run.diemBan = Math.max(0, run.diemBan + TL.Scoring.vanBonus(run, ev).total);
     run.vanUsed++; run.vanNo++;
-    if (run.diemBan >= ban(run).target) { run.phase = 'payout'; run.paid = false; return 'cleared'; }
+    if (run.diemBan >= ban(run).target) { run.phase = 'payout'; run.paid = false; run.stats.bans = (run.stats.bans || 0) + 1; return 'cleared'; }
     if (run.vanUsed >= ban(run).vanMax) { run.phase = 'lost'; return 'lost'; }
     return 'next';
   }
@@ -114,7 +150,7 @@
 
   function payout(run) {
     if (run.paid && run.lastPayout) return run.lastPayout;
-    const b = ban(run), lines = [], unused = b.vanLeft, tt = hasQn(run, 'than_tai'), interest = tt ? Math.floor(run.money / CFG.BAU.THAN_TAI_PER) : Math.min(CFG.INTEREST_MAX, Math.floor(run.money / CFG.INTEREST_PER));
+    const b = ban(run), lines = [], unused = b.vanLeft, tt = hasQn(run, 'than_tai'), interest = tt ? Math.floor(run.money / CFG.BAU.THAN_TAI_PER) : Math.min(interestMax(run), Math.floor(run.money / CFG.INTEREST_PER));
     lines.push({ label: T.kind[b.kind], amount: CFG.PAYOUT[b.kind] });
     if (unused > 0 && CFG.UNUSED_VAN_PTS > 0) lines.push({ label: T.payout.unused.replace('%d', unused), amount: CFG.UNUSED_VAN_PTS * unused });
     if (run.doi > 0 && CFG.DOI_UNUSED_LIXI > 0) lines.push({ label: T.payout.khongDoi.replace('%d', run.doi), amount: CFG.DOI_UNUSED_LIXI * run.doi });
@@ -141,21 +177,22 @@
     const rng = TL.makeRng((run.seed ^ 0x9E3779B9) + 104729 * (run.vanNo + 1) + 15485863 * run.shop.n); run.shop.n++;
     const owned = ownedQn(run), qs = [];
     while (qs.length < CFG.SHOP.QN_COUNT) {
-      const pool = QN_IDS.filter(id => !owned.includes(id) && !qs.includes(id)); if (!pool.length) break;
+      const pool = qnPool(run).filter(id => !owned.includes(id) && !qs.includes(id)); if (!pool.length) break;
       qs.push(pickRare(rng, pool, D.QUY_NHAN));
     }
     const rb = TL.makeRng((run.seed ^ 0xBA0BA0) + 7919 * (run.vanNo + 1) + 104729 * run.shop.n);   // Báu vật: own rng so the other draws keep their order
     if (run.chang >= CFG.BAU.MIN_CHANG && owned.filter(id => D.QUY_NHAN[id].rarity === 'bau').length < CFG.BAU.MAX_OWNED) {
-      const bp = D.BAU_IDS.filter(id => !owned.includes(id));
+      const bp = bauPool(run).filter(id => !owned.includes(id));
       for (let k = 0; k < qs.length && bp.length; k++) if (rb() < CFG.BAU.CHANCE) { qs[k] = bp[Math.floor(rb() * bp.length)]; break; }
     }
     const sp = SAO_IDS.slice(), ss = [];
     while (ss.length < CFG.SHOP.SAO_COUNT && sp.length) ss.push(sp.splice(Math.floor(rng() * sp.length), 1)[0]);
-    const qe = []; while (qe.length < CFG.SHOP.QUE_COUNT) qe.push(pickRare(rng, QUE_IDS.filter(id => !qe.includes(id)), D.QUE));
+    const qe = [], qpool = quePool(run); while (qe.length < CFG.SHOP.QUE_COUNT && qe.length < qpool.length) qe.push(pickRare(rng, qpool.filter(id => !qe.includes(id)), D.QUE));
     const items = qs.map(id => ({ kind: 'qn', id: id, price: CFG.PRICE.QN[id], sold: false }))
       .concat(ss.map(id => ({ kind: 'sao', id: id, price: CFG.PRICE.SAO, sold: false })))
       .concat(qe.map(id => ({ kind: 'que', id: id, price: CFG.PRICE.QUE[id], sold: false })));
     for (let k = 0; k < CFG.SHOP.PACK_COUNT; k++) items.push({ kind: 'pack', id: D.PACK.id, price: CFG.PRICE.PACK, sold: false });
+    if (run.held) { const hd = run.held; run.held = null; if (!items.some(it => it.id === hd.id)) items.push({ kind: hd.kind, id: hd.id, price: hd.price, sold: false, held: true }); }
     run.shop.items = items;
     items.forEach(it => see(run, it.id));
   }
@@ -163,7 +200,7 @@
   function shop(run) { if (!run.shop.items.length) roll(run); return run.shop.items; }
 
   function give(run, kind, id) {   // put a bought / chosen item in its slot; false when the slots are full
-    if (kind === 'qn') { const f = run.qn.indexOf(null); if (f < 0) return false; run.qn[f] = { id: id, n: 0 }; }
+    if (kind === 'qn') { const f = freeQnSlot(run); if (f < 0) return false; run.qn[f] = { id: id, n: 0 }; }
     else if (kind === 'que') { const f = run.que.indexOf(null); if (f < 0) return false; run.que[f] = id; }
     else if (kind === 'sao') { const t = D.SAO[id].combo; run.sao[t] = (run.sao[t] || 1) + 1; }
     see(run, id);
@@ -174,7 +211,7 @@
     const it = shop(run)[i];
     if (!it || it.sold) return { ok: false, why: 'sold' };
     if (it.kind === 'pack') return openPack(run, i);
-    if (it.kind === 'qn' && run.qn.indexOf(null) < 0) return { ok: false, why: 'slots' };
+    if (it.kind === 'qn' && freeQnSlot(run) < 0) return { ok: false, why: 'slots' };
     if (it.kind === 'qn' && D.QUY_NHAN[it.id].rarity === 'bau' && run.qn.filter(q => q && D.QUY_NHAN[q.id].rarity === 'bau').length >= CFG.BAU.MAX_OWNED) return { ok: false, why: 'slots' };
     if (it.kind === 'que' && run.que.indexOf(null) < 0) return { ok: false, why: 'slots' };
     if (run.money < it.price) return { ok: false, why: 'money' };
@@ -187,10 +224,10 @@
     if (!it || it.sold || it.kind !== 'pack' || run.pack) return { ok: false, why: 'sold' };
     if (run.money < it.price) return { ok: false, why: 'money' };
     const rng = TL.makeRng((run.seed ^ 0x1B873593) + 7561 * (run.vanNo + 1) + 15485863 * run.shop.n + 31 * i + (run.rn = (run.rn || 0) + 1));
-    const qFree = run.qn.indexOf(null) >= 0, eFree = run.que.indexOf(null) >= 0;
+    const qFree = freeQnSlot(run) >= 0, eFree = run.que.indexOf(null) >= 0;
     if (!qFree && !eFree) return { ok: false, why: 'slots' };   // choices only offer kinds that still have a free slot
     run.money -= it.price; it.sold = true;
-    const owned = ownedQn(run), ch = [], pool = () => (qFree ? QN_IDS.filter(id => !owned.includes(id) && !ch.some(c => c.id === id)).map(id => ['qn', id]) : []).concat(eFree ? QUE_IDS.filter(id => !ch.some(c => c.id === id)).map(id => ['que', id]) : []);
+    const owned = ownedQn(run), ch = [], pool = () => (qFree ? qnPool(run).filter(id => !owned.includes(id) && !ch.some(c => c.id === id)).map(id => ['qn', id]) : []).concat(eFree ? quePool(run).filter(id => !ch.some(c => c.id === id)).map(id => ['que', id]) : []);
     while (ch.length < CFG.SHOP.PACK_CHOICES) {
       const p = pool(), map = {}; p.forEach(x => { map[x[1]] = x[0] === 'qn' ? D.QUY_NHAN[x[1]] : D.QUE[x[1]]; });
       const id = pickRare(rng, p.map(x => x[1]), map); ch.push({ kind: map[id].kind, id: id });
@@ -223,7 +260,7 @@
   }
 
   function reroll(run) {
-    const cost = (CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls) * (hasQn(run, 'than_tai') ? CFG.BAU.THAN_TAI_REROLL_X : 1);
+    const first = run.shop.rerolls === 0 && run.perk && run.perk.reroll ? CFG.META.REROLL_OFF : 0, cost = Math.max(0, (CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls) * (hasQn(run, 'than_tai') ? CFG.BAU.THAN_TAI_REROLL_X : 1) - first);
     if (run.money < cost) return { ok: false, why: 'money' };
     run.money -= cost; run.shop.rerolls++; roll(run);
     return { ok: true };
@@ -252,18 +289,28 @@
     return { ok: true, events: events, msg: '' };
   }
 
+  function hold(run, i) {
+    if (!run.perk || !run.perk.giu) return { ok: false, why: 'perk' };
+    const it = run.shop.items[i];
+    if (!it || it.sold || it.kind === 'pack') return { ok: false, why: 'item' };
+    const was = !!it.keep; run.shop.items.forEach(x => { x.keep = false; }); it.keep = !was;
+    return { ok: true, kept: it.keep };
+  }
+  function keepHeld(run) { const it = run.shop.items.find(x => x.keep && !x.sold); run.held = it ? { kind: it.kind, id: it.id, price: it.price } : null; }
+
   function continueEndless(run) {
     if (run.phase !== 'won') return false;
     run.endless = true; run.chang++; run.ban = 0; drawBoss(run, run.chang);
-    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.doi = CFG.DOI_PER_BAN; run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
+    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.doi = doiMax(run); run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
     run.shop = { items: [], rerolls: 0, n: 0 }; run.paid = false; run.lastPayout = null; run.phase = 'ban';
     return 'ok';
   }
 
   function nextBan(run) {
     if (isLast(run)) { run.phase = 'won'; return 'won'; }
+    keepHeld(run);
     if (run.ban === 2) { run.chang++; run.ban = 0; } else run.ban++;
-    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.doi = CFG.DOI_PER_BAN; run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
+    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.doi = doiMax(run); run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
     run.shop = { items: [], rerolls: 0, n: 0 }; run.paid = false; run.lastPayout = null; run.phase = 'ban';
     return 'ok';
   }
@@ -286,5 +333,5 @@
     } catch (e) { return null; }
   }
 
-  TL.Run = { create: create, ban: ban, startVan: startVan, doiBai: doiBai, record: record, endVan: endVan, payout: payout, shop: shop, buy: buy, sell: sell, sellQue: sellQue, openPack: openPack, choosePack: choosePack, useQue: useQue, continueEndless: continueEndless, reroll: reroll, nextBan: nextBan, save: save, load: load };
+  TL.Run = { doiMax: doiMax, interestMax: interestMax, hold: hold, create: create, ban: ban, startVan: startVan, doiBai: doiBai, record: record, endVan: endVan, payout: payout, shop: shop, buy: buy, sell: sell, sellQue: sellQue, openPack: openPack, choosePack: choosePack, useQue: useQue, continueEndless: continueEndless, reroll: reroll, nextBan: nextBan, save: save, load: load };
 })(globalThis.TL = globalThis.TL || {});
