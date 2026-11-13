@@ -16,10 +16,10 @@
   const key = c => c.cards.join(','), ctr = b => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 }), top = b => ({ x: b.x + b.w / 2, y: b.y }), fmt = TL.fmt;
   const TU = () => (TL.Tutorial && TL.Tutorial.on() ? TL.Tutorial : null);                       // the running lesson, if any
   const gateOK = (p, t) => !TL.Tutorial || TL.Tutorial.gate(p, t), tnote = (ev, d) => { const t = TU(); if (t) t.notify(ev, d); };
-  const J = { diem: {}, the: {}, pot: {}, diemBan: {}, lixi: {}, van: {} };   // juice holders read by the HUD (numbers swell instead of covering popups)
+  const J = { diem: {}, the: {}, pot: {}, diemBan: {}, lixi: {}, van: {}, house: {} };   // juice holders read by the HUD (numbers swell instead of covering popups)
 
   let run, info, st, r, lk = '', hs = 1, ts = 1, os = 1, vm, cv, shownDB, hand, opp, qnS, groups, ghost, vongPlays, ready, leg, hintList, hintIdx, sortMode, selOk, selMsg, tmsg, tmsgTok = 0;
-  let pay, tipHover, tipPin, downBtn, hovBtn, dead;
+  let pay, tipHover, tipPin, downBtn, hovBtn, dead, rcard = null, ruleSeen = '';   // rcard: boss rule card {t, ...} while it is up
   let queS = [null, null], qr = [], qtip = null, qbtn = null, qdown = false, swapFly = [], soiOn = false;   // Quẻ: sprites, slot rects, pinned slot, Dùng button rect
 
   // ------------------------------------------------------------ helpers
@@ -33,7 +33,7 @@
   const dbPt = () => ctr(r.dbBox);
   const stampAt = (str, kind) => { const c = ctr(r.table); FX.stamp(str, kind, c.x, c.y); };
   const dim = (s, a, b) => { s.scale = a; s.V.sx = s.V.sy = b / a; };       // new scale, springs in from the old size
-  const canAct = () => ready && !dead && !pay && st && !st.over && !FX.queue.busy() && !Game().flags.auto && vm.turn === 0 && !Game().overlay;
+  const canAct = () => ready && !dead && !rcard && !pay && st && !st.over && !FX.queue.busy() && !Game().flags.auto && vm.turn === 0 && !Game().overlay;
 
   function buildVm() {
     const hr = info.house ? D.HOUSE_RULES[info.house] : null;
@@ -85,7 +85,7 @@
     const G = Game();
     if (!G.run) G.run = TL.Run.create(G.flags.seed != null ? G.flags.seed : undefined);
     if (G.flags.auto && G.flags.endless && !G.run.endless) { const x = G.run; x.chang = 2; x.ban = 2; x.phase = 'won'; TL.Run.continueEndless(x); }
-    run = G.run; if (TL.Tutorial) TL.Tutorial.attach(run); dead = false; pay = null; sortMode = 'rank'; ghost = {}; tmsg = selMsg = null; tipHover = tipPin = null; downBtn = hovBtn = null; lk = '';
+    run = G.run; if (TL.Tutorial) TL.Tutorial.attach(run); dead = false; pay = null; rcard = null; ruleSeen = ''; sortMode = 'rank'; ghost = {}; tmsg = selMsg = null; tipHover = tipPin = null; downBtn = hovBtn = null; lk = '';
     hand = []; opp = []; qnS = []; groups = []; st = null; ready = false; leg = null; selOk = false; vongPlays = 0;
     cv = { pot: 0, diemBan: 0, diem: 0, the: 0, lixi: run.money, juiceTargets: J }; shownDB = 0; info = TL.Run.ban(run); buildVm(); FX.reset(); relayout(); buildQn(); buildQue(); swapFly = []; soiOn = false;
     if (run.phase === 'payout') return showPay();
@@ -93,11 +93,16 @@
     if (run.phase === 'won' || run.phase === 'lost') return toEnd(run.phase);
     startBan();
   }
+  function openRule(again) { rcard = { again: again, t: again ? 1.2 : 0, rule: info.rule, opp: info.opp, name: info.name }; snd('gong', { vol: 0.8 }); }
+  function closeRule() { if (!rcard) return; rcard = null; snd('select'); }
+  function ruleSay(m) { return info && info.rule ? info.rule.name + ': ' + m : m; }   // a message caused by the luật nhà names the rule and juices its chip
   function startBan() {
     info = TL.Run.ban(run); cv.lixi = run.money; cv.diemBan = shownDB = run.diemBan; buildVm(); buildQn(); buildQue(); sweepAll(true); st = null; ready = false; soiOn = false;
     if (TL.BG) TL.BG.setMood(info.kind === 'trum' ? 'boss' : 'ban');
     if (!Game().flags.auto) saveRun();
-    if (run.vanUsed === 0) {
+    const card = run.vanUsed === 0 && info.kind === 'trum' && info.rule && !Game().flags.auto;   // a bàn trùm opens with the rule card instead of two stamps
+    if (card) { FX.queue.add(() => { openRule(false); return 0; }, 0.2); FX.queue.wait(() => !rcard); }
+    else if (run.vanUsed === 0) {
       FX.queue.add(() => { stampAt(T.kind[info.kind] + ' · ' + info.name, 'gold'); snd(info.kind === 'trum' ? 'gong' : 'stamp'); return K.intro; }, 0.2);
       if (info.rule) FX.queue.add(() => { stampAt(info.rule.name + ': ' + info.rule.quote, 'bad'); snd('stamp'); return K.introHouse; }, 0);
     }
@@ -132,7 +137,7 @@
       if (!selOk) return;
       const ids = selIds(); ready = false; const evs = RU.play(st, 0, ids); if (evs.length) process(evs); else { ready = true; say(T.msg.illegal); }
     } else if (id === 'bo') {
-      if (!leg.canPass) { if (!st.table) return; say(T.msg.mustBeat); return; }
+      if (!leg.canPass) { if (!st.table) return; if (st.mods.mustBeat && info.rule) { FX.juice(J.house, 1.2); say(ruleSay(T.msg.mustBeat)); } else say(T.msg.mustBeat); return; }
       ready = false; hand.forEach(s => { s.selected = false; }); process(RU.pass(st, 0));
     } else if (id === 'goiy') hint();
     else if (id === 'xep') xep();
@@ -155,11 +160,16 @@
   function refresh() {   // selection preview: combo name, level, Điểm × Thế only for a legal selection
     const ids = hand ? selIds() : []; selOk = false; selMsg = null; tnote('sel', ids);
     if (!ready || !leg) return;
-    if (!ids.length) { clearScore(); return; }
+    if (!ids.length) { ruleSeen = ''; clearScore(); return; }
     const c = C.detect(ids, st.mods);
-    if (!c) selMsg = st.mods.sameSuitStraight && C.detect(ids) ? T.msg.sameSuit : T.msg.illegal;
-    else if (!leg.plays.some(p => key(p) === key(c))) selMsg = st.table && st.mods.noChat && C.beats(c, st.table.combo, {}) === 'chat' ? T.msg.noChat : st.mods.noHeoFinish && C.finishesWithHeo(c, st.hands[0]) ? T.msg.noHeoFinish : T.msg.cantBeat;
+    let ruled = false;
+    if (!c) { ruled = !!(st.mods.sameSuitStraight && C.detect(ids)); selMsg = ruled ? T.msg.sameSuit : T.msg.illegal; }
+    else if (!leg.plays.some(p => key(p) === key(c))) {
+      ruled = !!(st.table && st.mods.noChat && C.beats(c, st.table.combo, {}) === 'chat') || !!(st.mods.noHeoFinish && C.finishesWithHeo(c, st.hands[0]));
+      selMsg = st.table && st.mods.noChat && C.beats(c, st.table.combo, {}) === 'chat' ? T.msg.noChat : st.mods.noHeoFinish && C.finishesWithHeo(c, st.hands[0]) ? T.msg.noHeoFinish : T.msg.cantBeat;
+    }
     else { const p = S.preview(run, c); selOk = true; vm.combo = { name: D.COMBO_NAME[c.type], level: p.level }; cv.diem = p.diem; cv.the = p.the; }
+    if (ruled && info.rule) { selMsg = ruleSay(selMsg); if (ruleSeen !== selMsg) FX.juice(J.house, 1.2); ruleSeen = selMsg; } else ruleSeen = '';
     if (!selOk) clearScore();
   }
 
@@ -317,7 +327,9 @@
   function pointer(e) {
     if (!r) return;
     const inB = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+    if (rcard) { if (e.type === 'down' && rcard.t >= 1.2) closeRule(); return; }
     if (pay) { if (e.type === 'down' && pay.done && inB(payBtn(), e.x, e.y)) leave(); return; }
+    if (e.type === 'down' && info.rule && !dead && !Game().overlay && inB(r.oppPlate, e.x, e.y) && !slotAt(e.x, e.y)) { openRule(true); return; }
     if (e.type === 'down' && qtip != null && qbtn && e.x >= qbtn.x && e.x <= qbtn.x + qbtn.w && e.y >= qbtn.y && e.y <= qbtn.y + qbtn.h) { qdown = true; snd('button'); return; }
     if (e.type === 'up' && qdown) { qdown = false; if (qtip != null && qbtn && e.x >= qbtn.x && e.x <= qbtn.x + qbtn.w && e.y >= qbtn.y && e.y <= qbtn.y + qbtn.h) useQueUI(qtip); return; }
     if (e.type === 'move') { tipHover = slotAt(e.x, e.y); const id = TL.HUD.hit(r, e.x, e.y); hovBtn = id; SP.hover(hand, canAct() ? e.x : null, e.y); return; }
@@ -334,6 +346,7 @@
     }
   }
   function key_(e) {
+    if (rcard) { if (rcard.t >= 1.2) closeRule(); return; }
     if (pay) { if (pay.done && (e.key === 'enter' || e.key === 'space')) leave(); return; }
     if (e.key === 'esc') return Game().setScreen('settings');
     const m = { enter: 'danh', space: 'bo', h: 'goiy', s: 'xep' }[e.key]; if (m) act(m);
@@ -413,6 +426,31 @@
     d.forEach((l, k) => A.text(ctx, l, x + 8, y + 26 + k * lh, { size: sz, color: PAL.giayDo }));
     qu.forEach((l, k) => A.text(ctx, l, x + 8, y + 28 + (d.length + k) * lh, { size: sz, color: PAL.laXanh }));
   }
+  function drawRuleCard(ctx) {   // boss rule card: stays until tap, click or key (input ignored for the first 1.2 s)
+    const G = Game(), t = rcard.t, ru = rcard.rule, red = FX.reducedMotion, sf = G.safe, land = G.w > G.h && G.h < 500;
+    const ez = red ? 1 : Math.min(1, t / 0.3), ease = 1 - Math.pow(1 - ez, 3);
+    ctx.save(); ctx.globalAlpha = 0.78 * ease; ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, G.w, G.h); ctx.restore();
+    const availW = G.w - sf.l - sf.r - 24, availH = G.h - sf.t - sf.b - 16, pad = land ? 14 : 18;
+    const w = Math.min(availW, land ? 640 : 440), dpr = G.dpr || 1;
+    const psz = Math.min(land ? availH - 2 * pad - 4 : w * 0.46, 200), sc = Math.max(1, Math.floor(psz * dpr / 48)) / dpr, pS = Math.round(48 * sc);
+    const tw = land ? w - pS - 3 * pad : w - 2 * pad, nameS = land ? 26 : 28, quoteS = 15, longS = land ? 17 : 18;
+    const quote = wrap('“' + ru.quote + '”', quoteS, tw), long = wrap(ru.long || ru.quote, longS, tw), hint = rcard.again ? T.hud.ruleClose : T.hud.ruleCard;
+    const textH = 16 + 6 + nameS + 8 + quote.length * (quoteS + 5) + 10 + long.length * (longS + 6) + 8 + 16;
+    const h = land ? Math.max(pS, textH) + 2 * pad : pad + pS + 12 + textH + pad - 4;
+    const x = Math.round(sf.l + 12 + (availW - w) / 2), y = Math.round(sf.t + 8 + (availH - h) / 2 + (1 - ease) * 40);
+    A.panel(ctx, { x: x, y: y, w: w, h: h }, { fill: PAL.nauCanhGian, border: PAL.vangKim, radius: 6 });
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    const px = land ? x + pad : Math.round(x + (w - pS) / 2), py = land ? Math.round(y + (h - pS) / 2) : y + pad;
+    ctx.fillStyle = PAL.denSon; ctx.fillRect(px - 4, py - 4, pS + 8, pS + 8);
+    ctx.drawImage(A.portrait(rcard.opp), px, py, pS, pS); ctx.restore();
+    const cx = land ? x + 2 * pad + pS : x + w / 2, al = land ? 'left' : 'center', tx = land ? cx : cx;
+    let ty = land ? Math.round(y + (h - textH) / 2) : py + pS + 12;
+    A.text(ctx, T.hud.ruleKick, tx, ty, { size: 12, color: PAL.vangKim, align: al }); ty += 16 + 6;
+    A.text(ctx, rcard.name, tx, ty, { size: nameS, color: PAL.vangKim, align: al }); ty += nameS + 8;
+    quote.forEach(l => { A.text(ctx, l, tx, ty, { size: quoteS, color: PAL.laXanh, align: al }); ty += quoteS + 5; }); ty += 10;
+    long.forEach(l => { A.text(ctx, l, tx, ty, { size: longS, color: PAL.giayDo, align: al }); ty += longS + 6; }); ty += 8;
+    if (t >= 1.2) { ctx.save(); ctx.globalAlpha = red ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(t * 3)); A.text(ctx, hint, tx, ty, { size: 14, color: PAL.vangKim, align: al }); ctx.restore(); }
+  }
   function drawPay(ctx) {
     const G = Game(), b = payBox(); ctx.save(); ctx.globalAlpha = 0.6; ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, G.w, G.h); ctx.restore();
     A.panel(ctx, b, { fill: PAL.nauCanhGian, border: PAL.vangKim });
@@ -422,7 +460,7 @@
     if (pay.done) A.button(ctx, payBtn(), run.phase === 'shop' ? T.payout.next : T.btn.ok, 'idle');
   }
   function update(dt) {
-    if (!r) return; relayout();
+    if (!r) return; relayout(); if (rcard) rcard.t += dt;
     [hand, opp, qnS.filter(Boolean), queS.filter(Boolean), swapFly].forEach(l => l.forEach(s => s.update(dt)));
     swapFly = swapFly.filter(s => !s.dead);
     groups.forEach(g => { g.list.forEach(s => s.update(dt)); g.list = g.list.filter(s => !s.dead); }); groups = groups.filter(g => g.list.length);
@@ -432,7 +470,7 @@
     if (!r) return;
     TL.HUD.draw(ctx, vm, r); SP.drawAll(ctx, qnS.filter(Boolean)); drawQue(ctx); SP.drawAll(ctx, opp);
     groups.forEach(g => SP.drawAll(ctx, g.list)); SP.drawAll(ctx, hand);
-    SP.drawAll(ctx, swapFly); TL.HUD.drawOver(ctx, vm, r); drawTip(ctx); drawQueTip(ctx); if (pay) drawPay(ctx);
+    SP.drawAll(ctx, swapFly); TL.HUD.drawOver(ctx, vm, r); drawTip(ctx); drawQueTip(ctx); if (pay) drawPay(ctx); if (rcard) drawRuleCard(ctx);
   }
   function played() {   // bounding box of the cards on the table (just played), with room for their popups
     const l = groups.length ? groups[groups.length - 1].list.filter(s => !s.dead) : []; if (!l.length) return [];
@@ -449,7 +487,7 @@
       card: id => { const sp = hand.find(x => x.id === id); if (!sp) return null; const z = sp.size(); return { x: sp.V.x - z.w / 2, y: sp.V.y - z.h / 2 - M.lift, w: z.w, h: z.h + M.lift }; },
     };
   }
-  function exit() { dead = true; FX.queue.clear(); FX.reset(); if (TU()) TU().cancel(); }
+  function exit() { dead = true; rcard = null; FX.queue.clear(); FX.reset(); if (TU()) TU().cancel(); }
 
   TL.Screens = TL.Screens || {};
   TL.Screens.table = { enter: enter, exit: exit, resize: () => { lk = ''; }, update: update, draw: draw, pointer: pointer, key: key_, tutRects: tutRects, _que: () => ({ qr: qr, btn: qbtn, ready: !!ready && vm.turn === 0 && !FX.queue.busy(), hand: hand.map(x => ({ id: x.id, x: x.V.x, y: x.V.y })), msg: vm.msg, x2: vm.x2, vanLeft: vm.vanLeft, reveal: st && st.reveal }) };

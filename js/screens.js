@@ -441,21 +441,21 @@
     const S = () => G().settings;
     function apply() { const g = G(); g.saveSettings(); g.applySettings(); }
     function lay() {
-      const g = G(), w = g.w, h = g.h, sf = g.safe, k = [w, h, g.name].join();
+      const g = G(), w = g.w, h = g.h, sf = g.safe, ps = TL.PWA ? TL.PWA.status() : { full: 'no', inst: 'menu' }, k = [w, h, g.name, ps.full, ps.inst].join();
       if (k === key) return; key = k;
       const X0 = sf.l + 8, X1 = w - sf.r - 8, Y0 = sf.t + 8, Y1 = h - sf.b - 8, two = h < 480 && w > 560, u = clamp(Math.round(Math.min(w, h) / 30), 14, 20);
-      const pw = Math.min(X1 - X0, two ? 740 : 420), rowH = 56, bh = 50, titleH = 52, pad = 16, cols = two ? 2 : 1;
-      const rowsN = two ? 4 : 6, ph = titleH + rowsN * rowH + pad;
+      const pw = Math.min(X1 - X0, two ? 740 : 420), rowH = two ? 50 : 56, bh = two ? 44 : 50, titleH = two ? 46 : 52, pad = 16, cols = two ? 2 : 1;
+      const rowsN = two ? 5 : 8, ph = titleH + rowsN * rowH + pad;
       const px = Math.round((X0 + X1) / 2 - pw / 2), py = Math.round(Math.max(Y0, (Y0 + Y1) / 2 - ph / 2)), cw = (pw - pad * 2 - (two ? 16 : 0)) / cols;
       const cell = (i) => ({ x: px + pad + (i % cols) * (cw + 16), y: py + titleH + Math.floor(i / cols) * rowH, w: cw });
       L = { panel: { x: px, y: py, w: pw, h: ph }, u: u, cells: [], bh: bh };
       const home = g.name !== 'title';
-      const defs = ['sound', 'speed', 'scan', 'red', 'tut'];
+      const defs = ['sound', 'speed', 'scan', 'red', 'full', 'inst', 'tut'];
 
       defs.forEach((id, i) => {
         const c = cell(i); L.cells.push({ id: id, c: c });
       });
-      const f1 = cell(two ? 6 : 5), f2 = two ? cell(7) : null, tutC = cell(4);
+      const f1 = cell(two ? 8 : 7), f2 = two ? cell(9) : null, tutC = cell(6);
       L.foot = two ? [{ id: 'home', r: { x: f1.x, y: f1.y, w: cw, h: bh } }, { id: 'close', r: { x: f2.x, y: f2.y, w: cw, h: bh } }]
         : (() => { const half = (cw - 10) / 2; return [{ id: 'home', r: { x: f1.x, y: f1.y, w: half, h: bh } }, { id: 'close', r: { x: f1.x + half + 10, y: f1.y, w: half, h: bh } }]; })();
       L.home = home;
@@ -465,6 +465,11 @@
         if (o.id === 'speed') {
           const sw = Math.min(64, (cw - 80) / 3);
           CFG.MOTION.speeds.forEach((v, j) => list.push({ id: 'speed' + v, label: v + '×', r: { x: Math.round(c.x + cw - 3 * sw + j * sw), y: Math.round(c.y), w: Math.round(sw - 4), h: bh }, sel: st.speed === v, still: true }));
+        } else if (o.id === 'full' || o.id === 'inst') {
+          const f = o.id === 'full', v = f ? ps.full : ps.inst, canDo = f ? (v === 'on' || v === 'off') : v === 'can';
+          o.note = f ? (v === 'no' ? T.settings.fullNo : v === 'app' ? T.settings.fullIn : null) : (v === 'ios' ? T.settings.instIos : v === 'done' ? T.settings.instDone : v === 'menu' ? T.settings.instMenu : null);
+          if (f && canDo) list.push({ id: 'full', label: v === 'on' ? T.settings.on : T.settings.off, r: { x: Math.round(c.x + cw - 96), y: Math.round(c.y), w: 96, h: bh }, sel: v === 'on', still: true });
+          if (!f && canDo) list.push({ id: 'inst', label: T.settings.instGo, r: { x: Math.round(c.x + cw - 96), y: Math.round(c.y), w: 96, h: bh }, still: false });
         } else if (o.id === 'tut') {
           list.push({ id: 'tut', label: T.settings.tutGo, r: { x: Math.round(tutC.x + cw - 110), y: Math.round(tutC.y), w: 110, h: bh }, still: false });
         } else {
@@ -481,6 +486,8 @@
       if (id === 'sound') st.sound = !st.sound;
       else if (id === 'scan') st.scanlines = !st.scanlines;
       else if (id === 'red') st.reducedMotion = !st.reducedMotion;
+      else if (id === 'full') { if (TL.PWA) TL.PWA.toggleFullscreen(); snd('select'); return; }
+      else if (id === 'inst') { if (TL.PWA) TL.PWA.install().then(() => { key = ''; }); return; }
       else if (id.indexOf('speed') === 0) st.speed = +id.slice(5);
       else if (id === 'tut') { const g = G(); g.run = TL.Run.create(newSeed()); if (TL.Tutorial) TL.Tutorial.restart(g.run); g.setScreen('table'); return; }
       else if (id === 'home') { G().setScreen('title'); return; }
@@ -493,8 +500,14 @@
       ctx.save(); ctx.globalAlpha = 0.72; ctx.fillStyle = PAL.denSon; ctx.fillRect(0, 0, g.w, g.h); ctx.restore();
       A.panel(ctx, L.panel, { fill: PAL.nauCanhGian, border: PAL.vangKim, radius: 6 });
       txt(ctx, T.settings.title, L.panel.x + L.panel.w / 2, L.panel.y + 10, 28, PAL.vangKim, 'center');
-      const lab = { sound: T.settings.sound, speed: T.settings.speed, scan: T.settings.scanlines, red: T.settings.reduced, tut: T.settings.tut };
-      L.cells.forEach(o => { const s = fit(lab[o.id], L.u + 2, o.c.w - (o.id === 'speed' ? 3 * 60 : o.id === 'tut' ? 110 : 96) - 12, 10); txt(ctx, lab[o.id], o.c.x, o.c.y + (L.bh - s * 1.15 - 4) / 2, s, PAL.giayDo, 'left'); });
+      const lab = { sound: T.settings.sound, speed: T.settings.speed, scan: T.settings.scanlines, red: T.settings.reduced, full: T.settings.full, inst: T.settings.inst, tut: T.settings.tut };
+      L.cells.forEach(o => {
+        const s = fit(lab[o.id], L.u + 2, o.c.w - (o.id === 'speed' ? 3 * 60 : o.id === 'tut' ? 110 : o.note ? 0 : 96) - 12, 10);
+        if (o.note) {   // no button here: label with a short note under it
+          txt(ctx, lab[o.id], o.c.x, o.c.y + 2, s, PAL.giayDo, 'left');
+          const ns = fit(o.note, 12, o.c.w - 4, 9); txt(ctx, o.note, o.c.x, o.c.y + 2 + s * 1.2 + 2, ns, PAL.vangKim, 'left');
+        } else txt(ctx, lab[o.id], o.c.x, o.c.y + (L.bh - s * 1.15 - 4) / 2, s, PAL.giayDo, 'left');
+      });
       btns.draw(ctx);
     }
     function pointer(e) {

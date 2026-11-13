@@ -51,7 +51,7 @@
     const vanMax = (h && h.mods.twoVans ? CFG.HOUSE2.TWO_VANS : CFG.VAN_PER_BAN) + (run.vanExtra || 0);
     return {
       chang: run.chang, changName: run.chang < 3 ? c.name : T.end.endlessChang.replace('%d', run.chang + 1), ban: run.ban, kind: b.kind, name: h ? h.name : b.name, opp: h ? h.id : b.id, tag: h ? T.hud.house : b.tag, house: hid,
-      rule: h ? { name: h.name, quote: h.quote } : null, mods: h ? Object.assign({}, h.mods) : {},
+      rule: h ? { id: h.id, name: h.name, quote: h.quote, short: h.short, long: h.long } : null, mods: h ? Object.assign({}, h.mods) : {},
       target: target, aiLevel: CFG.AI_BY_CHANG[Math.min(run.chang, 2)], vanMax: vanMax,
       vanUsed: run.vanUsed, vanLeft: vanMax - run.vanUsed, diem: run.diemBan, last: run.chang === 2 && run.ban === 2 && !run.endless,
     };

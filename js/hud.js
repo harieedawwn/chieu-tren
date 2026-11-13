@@ -10,7 +10,7 @@
  *   isEnabled(rects, id) -> bool
  *   demoScreen() -> Screen         the ?hud screen: fake mid-game vm, real card textures placed with Sprite.fan, clickable cards and buttons
  * vm extras read when present: hoverBtn, downBtn (button id -> hover/pressed look), house.short, deckLeft, live (false = before the deal: no turn ribbon, no card count),
- *   x2 (bool: Gấp đôi pending, draws a ×2 badge on the Nhân box), vanNo (current ván, 1-based; shown "Ván n/max"), j{diem,the,pot,diemBan,van} (FX.juice holders: the number swells), hl (tutorial spotlight, read by the tutorial only).
+ *   x2 (bool: Gấp đôi pending, draws a ×2 badge on the Nhân box), vanNo (current ván, 1-based; shown "Ván n/max"), j{diem,the,pot,diemBan,van,house} (FX.juice holders: the number swells), hl (tutorial spotlight, read by the tutorial only).
  * Text: every string goes through TL.Art.textC / TL.Art.badge (measured, centred from the ink box); Quy nhan name bars are labelled in drawOver only when the name fits at 9 px or more.
  */
 (function (TL) {
@@ -338,9 +338,9 @@
     const mid = h => y + h / 2;
     txt(ctx, vm.oppName || '', tx, mid(nameH), hs, { maxW: tw, color: PAL.vangKim, min: 11, raw: true }); y += nameH + gap;
     if (vm.house) {
-      chip(ctx, TX.hud.house, tx, mid(chipH), cs, { raw: true, left: true, fill: PAL.doSon, ink: PAL.giayDo });
+      chip(ctx, TX.hud.house, tx, mid(chipH), Math.round(cs * juiced(vm, 'house')), { raw: true, left: true, fill: PAL.doSon, ink: PAL.giayDo });
       y += chipH + gap;
-      if (showRule) { txt(ctx, vm.house.short || vm.house.name, tx, mid(ruleH), cs, { maxW: tw, alpha: 0.95, shadow: false, raw: true }); y += ruleH + gap; }
+      if (showRule) { txt(ctx, vm.house.short || vm.house.name, tx, mid(ruleH), Math.round(cs * juiced(vm, 'house')), { maxW: tw, alpha: 0.95, shadow: false, raw: true }); y += ruleH + gap; }
     }
     if (vm.oppCount > 0) {
       const parts = [TX.hud.oppCards.replace('%d', vm.oppCount)];

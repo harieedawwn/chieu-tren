@@ -1,5 +1,5 @@
 # PLAN — vòng nâng cấp (đọc đầu mỗi phiên; làm từ ô chưa tick đầu tiên; thiết kế ở DESIGN.md)
-- [ ] 1 Fixes: heo-chặt fuzz test, boss rule card, fullscreen + PWA (D1)
+- [x] 1 Fixes: heo-chặt fuzz test, boss rule card, fullscreen + PWA (D1)
 - [ ] 2 Landscape-phone layout and size hierarchy (D2)
 - [ ] 3 Bad hands: Lượt đổi and Sức bài (D3)
 - [ ] 4 Content: 8 Quý nhân, 5 Báu vật with aura, js/art3.js (D4)
@@ -10,10 +10,11 @@
 - [ ] 9 4-player table UI, Sòng Giao thừa, Sòng bốn mode (D9)
 - [ ] 10 Balance sim, full checks, README, live check (D10)
 
-Next: Bước 1.
+Next: Bước 2 (D2 điện thoại ngang). Ghi chú bước 1: fuzz test không tìm thấy bug engine (nguyên nhân gần như chắc chắn là luật Chú Ba hiện quá nhanh) nên đã làm thẻ luật + chip; js/pwa.js, sw.js (sinh bằng tools/build-pwa.js), tools/make-icons.js, tests/chat.fuzz.js, tests/pwa.check.js.
 
 ## Session protocol
 - Start: read PLAN.md, the DESIGN.md sections for the first unticked step, SPEC.md Glossary, and only the API headers (top comments) of files you need; grep instead of reading whole files.
+- Any change to game files: run `node tools/build-pwa.js` before commit (tests/pwa.check.js fails if sw.js is stale); bump ?v= in index.html when scripts change.
 - Do exactly one step. Pick choices yourself; no questions to the user.
 - Checks before commit: all tests in tests/ pass; headless index.html?auto&seed=1 reaches the end with zero console errors; Playwright screenshots of what you changed at 844×390, 390×844 and 1280×720, looked at and fixed (max 3 rounds).
 - If the step grows past about 500 changed lines, commit and push the passing part, note it under the step in PLAN.md, and continue in a second commit.

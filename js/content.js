@@ -101,9 +101,9 @@
   D.PACK = { id: 'bao_li_xi', name: 'Bao lì xì', kind: 'pack', rarity: 'thuong', price: CFG.PRICE.PACK, desc: 'Mở ra, chọn 1 trong 3 Quý nhân hoặc Quẻ ngẫu nhiên.' };
 
   Object.assign(D.HOUSE_RULES, {
-    co_hai: { id: 'co_hai', name: 'Cô Hai', quote: 'Sảnh phải đồng chất.', short: 'Sảnh đồng chất', mods: { sameSuitStraight: true } },
-    bac_chin: { id: 'bac_chin', name: 'Bác Chín', quote: 'Không được về bằng heo.', short: 'Cấm về heo', mods: { noHeoFinish: true } },
-    di_ut: { id: 'di_ut', name: 'Dì Út', quote: 'Bàn này chỉ đánh ' + CFG.HOUSE2.TWO_VANS + ' ván.', short: 'Chỉ ' + CFG.HOUSE2.TWO_VANS + ' ván', mods: { twoVans: true } },
+    co_hai: { id: 'co_hai', name: 'Cô Hai', quote: 'Sảnh phải đồng chất.', short: 'Sảnh đồng chất', long: 'Sảnh chỉ tính khi mọi lá cùng chất.', mods: { sameSuitStraight: true } },
+    bac_chin: { id: 'bac_chin', name: 'Bác Chín', quote: 'Không được về bằng heo.', short: 'Cấm về heo', long: 'Lượt đánh hết bài không được có heo.', mods: { noHeoFinish: true } },
+    di_ut: { id: 'di_ut', name: 'Dì Út', quote: 'Bàn này chỉ đánh ' + CFG.HOUSE2.TWO_VANS + ' ván.', short: 'Chỉ ' + CFG.HOUSE2.TWO_VANS + ' ván', long: 'Bàn này chỉ có ' + CFG.HOUSE2.TWO_VANS + ' ván thay vì 3.', mods: { twoVans: true } },
   });
   D.BOSS_IDS = ['ba_noi', 'chu_ba', 'ong_sau', 'co_hai', 'bac_chin', 'di_ut'];
   D.BOSS_IDS.forEach(function (id) { const h = D.HOUSE_RULES[id]; h.kind = 'luat'; h.rarity = 'thuong'; h.desc = h.quote; });

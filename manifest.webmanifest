@@ -1,0 +1,19 @@
+{
+  "name": "Chiếu Trên",
+  "short_name": "Chiếu Trên",
+  "description": "Tiến Lên miền Nam kiểu roguelike ngày Tết.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "theme_color": "#1B1412",
+  "background_color": "#1B1412",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

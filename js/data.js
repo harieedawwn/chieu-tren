@@ -51,9 +51,9 @@
   });
 
   const HOUSE_RULES = {
-    ba_noi: { id: 'ba_noi', name: 'Bà Nội', quote: 'Bà luôn đi trước.', short: 'Bà đi trước', mods: { oppLeads: true } },
-    chu_ba: { id: 'chu_ba', name: 'Chú Ba', quote: 'Không được chặt heo.', short: 'Cấm chặt', mods: { noChat: true } },
-    ong_sau: { id: 'ong_sau', name: 'Ông Sáu', quote: 'Có đè là phải đè.', short: 'Phải đè', mods: { mustBeat: true } },
+    ba_noi: { id: 'ba_noi', name: 'Bà Nội', quote: 'Bà luôn đi trước.', short: 'Bà đi trước', long: 'Đối thủ luôn đánh trước mỗi ván.', mods: { oppLeads: true } },
+    chu_ba: { id: 'chu_ba', name: 'Chú Ba', quote: 'Không được chặt heo.', short: 'Cấm chặt', long: 'Không ai được dùng tứ quý hay đôi thông để chặt heo.', mods: { noChat: true } },
+    ong_sau: { id: 'ong_sau', name: 'Ông Sáu', quote: 'Có đè là phải đè.', short: 'Phải đè', long: 'Có bộ đè được thì không được bỏ lượt.', mods: { mustBeat: true } },
   };
 
   const CHANG = [
@@ -91,6 +91,7 @@
       xepRank: 'Xếp: số', xepSuit: 'Xếp: chất', ok: 'Được', back: 'Quay lại', dung: 'Dùng', chon: 'Chọn',
     },
     hud: {
+      ruleCard: 'Chạm để bắt đầu', ruleClose: 'Chạm để đóng', ruleKick: 'Bàn trùm · Luật nhà',
       target: 'Mục tiêu', diemBan: 'Tổng điểm', pot: 'Hũ', van: 'Ván', vanLeft: 'Còn %d ván',
       lixi: 'Lì xì', chang: 'Chặng', ban: 'Bàn', level: 'Cấp %d', diem: 'Điểm', the: 'Nhân',
       yourTurn: 'Lượt bạn', oppTurn: 'Đối thủ đang nghĩ', oppCards: 'Còn %d lá', oppHeo: 'Heo: %d',
@@ -137,7 +138,7 @@
     menu: { title: 'Menu', resume: 'Tiếp tục', settings: 'Cài đặt', quit: 'Về màn đầu' },
     settings: {
       title: 'Cài đặt', sound: 'Âm thanh', speed: 'Tốc độ', scanlines: 'Scanlines',
-      reduced: 'Giảm chuyển động', on: 'Bật', off: 'Tắt', close: 'Đóng', home: 'Về màn chính', tut: 'Hướng dẫn', tutGo: 'Chơi lại',
+      reduced: 'Giảm chuyển động', full: 'Toàn màn hình', fullNo: 'Thêm vào Màn hình chính để chơi toàn màn hình', fullIn: 'Đang chạy toàn màn hình.', inst: 'Cài ứng dụng', instGo: 'Cài', instIos: 'Bấm Chia sẻ rồi Thêm vào Màn hình chính.', instDone: 'Đã cài ứng dụng.', instMenu: 'Dùng menu trình duyệt để cài ứng dụng.', on: 'Bật', off: 'Tắt', close: 'Đóng', home: 'Về màn chính', tut: 'Hướng dẫn', tutGo: 'Chơi lại',
     },
     msg: {
       hintNone: 'Không có bài nào đè được.', illegal: 'Bài này không hợp lệ.', cantBeat: 'Chưa đủ lớn.',
