@@ -56,8 +56,8 @@
       const potW = Math.round(clamp(table.w * 0.2, 84, 160)), potH = Math.round(clamp(table.h * 0.4, 38, 64)), lane = Math.round(clamp(table.h * 0.18, 18, 28));
       pot = R(table.x + 10, table.y + lane + Math.round((table.h - lane - 10 - potH) / 2), potW, potH);
       ribbon = R(table.x + table.w - 10 - 10, table.y + 8, 10, rh);
-      const x0 = pot.x + pot.w + 10, y0 = table.y + 8 + rh + 14;
-      tablePlay = R(x0, y0, table.x + table.w - 10 - x0, table.y + table.h - 8 - y0);
+      const x0 = pot.x + pot.w + 10, y0 = table.y + 6 + Math.round(rh * 0.5);   // ultra-wide phones: the ribbon sits in the corner, cards use the full height
+      tablePlay = R(x0, y0, table.x + table.w - 10 - x0, table.y + table.h - 6 - y0);
     } else {
       const lane = Math.round(clamp(table.h * 0.1, 26, 44));
       const potW = Math.round(clamp(table.w * (mode === 'portrait' ? 0.34 : 0.2), 100, 250)), potH = Math.round(clamp(table.h * 0.2, 46, 84));
@@ -66,7 +66,7 @@
       const pl = Math.round(clamp(table.h * 0.07, 20, 34));   // popup lane above the played cards
       tablePlay = R(table.x + 10, pot.y + pot.h + 8 + pl, table.w - 20, table.y + table.h - 10 - (pot.y + pot.h + 8 + pl));
     }
-    const tableCardH = Math.floor(Math.min(cardH * (mode === 'portrait' ? 0.95 : 1.12), tablePlay.h * 0.94));
+    const tableCardH = Math.floor(Math.min(cardH * (mode === 'portrait' ? 0.95 : 1.12), tablePlay.h * (compact ? 0.98 : 0.94)));
     return { pot: pot, ribbon: ribbon, tablePlay: tablePlay, tableCardH: tableCardH, compact: compact };
   }
 
@@ -305,7 +305,7 @@
     txt(ctx, TL.fmt(vm.pot || 0), p.x + p.w / 2, p.y + p.h * 0.67, clamp(p.h * 0.42, 14, 48) * juiced(vm, 'pot'), { align: 'center', color: PAL.vangKim, maxW: p.w - 12, min: 12, raw: true });
     // turn ribbon: only once the cards are dealt
     if (vm.live) {
-      const mine = vm.turn === 0, label = mine ? TX.hud.yourTurn : TX.hud.oppTurn, sz = Math.round(clamp(r.table.h * 0.07, 11, 20));
+      const mine = vm.turn === 0, seat = (vm.seatInfo || []).filter(q => q.seat === vm.turn)[0], who = (seat && seat.name) || vm.oppName, label = mine ? TX.hud.yourTurn : (who ? who : TX.hud.oppTurn), sz = Math.round(clamp(r.table.h * 0.07, 11, 20));
       const o = { size: sz, padX: Math.round(sz * 0.7), padY: Math.round(sz * 0.35) }, bs = A().badgeSize(label, sz, o);
       const right = r.mode === 'portrait' || r.compact, room = right ? r.table.w - 20 : Math.max(60, r.pot.x - r.table.x - 24), w = Math.min(bs.w, room);
       const x = right ? r.table.x + r.table.w - w - 10 : r.table.x + 10;
