@@ -84,7 +84,7 @@
     const hid = boss ? run.bosses[run.chang] : (run.ban === 1 && run.big && run.chang < 3 ? run.big[run.chang] : null) || null, h = hid ? D.HOUSE_RULES[hid] : null;
     const hid2 = boss && run.chang === 2 && !run.endless && run.boss2 ? run.boss2 : null, h2 = hid2 ? D.HOUSE_RULES[hid2] : null;
     const e = run.chang < 3 ? 1 : Math.pow(CFG.ENDLESS.TARGET_X, run.chang - 2);
-    const tx = (run.chieu >= 2 ? CFG.META.CHIEU2_TGT_X : 1) * (run.tgtX || 1), target = Math.round((run.chang < 3 ? CFG.TARGETS[run.chang][run.ban] : CFG.TARGETS[2][run.ban] * e) * tx / 10) * 10;
+    const tx = (run.chieu >= 2 ? CFG.META.CHIEU2_TGT_X : 1) * (run.chieu >= 6 ? CFG.META.CHIEU6_TGT_X : 1) * (run.tgtX || 1), target = Math.round((run.chang < 3 ? CFG.TARGETS[run.chang][run.ban] : CFG.TARGETS[2][run.ban] * e) * tx / 10) * 10;
     const seats = run.seats === 4 || (boss && run.chang === 2 && !run.endless) ? 4 : 2, oppId = boss && h ? h.id : b.id;
     const kin = D.BOSS_IDS.filter(id => id !== oppId), kinR = kin.length ? (run.chang + run.ban) % kin.length : 0, kinIds = kin.length >= 2 ? [kin[kinR], kin[(kinR + 1) % kin.length]] : kin;
     const vanMax = ((h && h.mods.twoVans) || (h2 && h2.mods.twoVans) ? CFG.HOUSE2.TWO_VANS : CFG.VAN_PER_BAN) + (run.vanExtra || 0);

@@ -196,7 +196,7 @@
   CFG.META = {
     XP: { BAN: 20, CHAT: 5, BIG_POT: 8, WIN: 250, CHIEU_X: [1, 1, 1.25, 1.5, 1.75, 2, 2.5] },   // per bàn cleared / chặt / hũ >= mục tiêu / run won; multiplier by Chiếu (index = Chiếu)
     LEVEL: { BASE: 120, STEP: 40 },    // xp needed for level n -> n+1 = BASE + STEP x (n-1); each level = 1 hoa mai
-    CHIEU_MAX: 6, CHIEU2_TGT_X: 1.15, CHIEU4_LAI: 2,
+    CHIEU_MAX: 6, CHIEU2_TGT_X: 1.15, CHIEU6_TGT_X: 1.3, CHIEU4_LAI: 2,
     NGHEO_MONEY: 0, NGHEO_LAI: 5,      // Con nhà nghèo
     CUNG_TGT_X: 1.15,                  // Con cưng
     TRO_SAO: 2, TRO_SLOTS: 4,          // Học trò
@@ -248,7 +248,7 @@
       loc: ['Có lộc', '2 Quẻ ngẫu nhiên.'],
     },
     chieu: ['', 'Chiếu 1', 'Chiếu 2', 'Chiếu 3', 'Chiếu 4', 'Chiếu 5', 'Chiếu Trên'],
-    chieuDesc: ['', 'Luật thường.', 'Mục tiêu +15%.', 'Đối thủ luôn ở cấp cao nhất.', 'Trần Lãi −' + CFG.META.CHIEU4_LAI + '.', 'Bàn trùm cuối có hai luật nhà.', 'Bớt một Lượt đổi. Bàn lớn cũng có luật nhà.'],
+    chieuDesc: ['', 'Luật thường.', 'Mục tiêu +15%.', 'Đối thủ luôn ở cấp cao nhất.', 'Trần Lãi −' + CFG.META.CHIEU4_LAI + '.', 'Bàn trùm cuối có hai luật nhà.', 'Bớt một Lượt đổi. Bàn lớn cũng có luật nhà. Mục tiêu thêm 30%.'],
     nodes: {
       qn_a: ['Quý nhân I', 'Thêm 5 Quý nhân vào kho.'], qn_b: ['Quý nhân II', 'Thêm 5 Quý nhân vào kho.'], qn_c: ['Quý nhân III', 'Thêm 4 Quý nhân vào kho.'],
       que_a: ['Quẻ mới', 'Thêm 3 Quẻ vào kho.'], bau_a: ['Báu vật I', 'Thêm Ông Địa, Cá Chép.'], bau_b: ['Báu vật II', 'Thêm Thần Tài, Táo Quân, Vua Bài.'],

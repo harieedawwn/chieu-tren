@@ -1,12 +1,17 @@
 /* tests/sim.js  node tests/sim.js [runs=300] [seed=1] : full runs (random bosses), TL.AI level 3 as player, greedy shop (Quý nhân, Sao, Quẻ, Bao lì xì) and Quẻ use, winners continue into endless. Prints one compact table + balance targets. */
 const path = require('path'); const J = f => require(path.join(__dirname, '..', 'js', f));
-['config', 'data', 'content', 'cards', 'rules', 'ai', 'scoring', 'run'].forEach(J);
+['config', 'data', 'content', 'cards', 'rules', 'ai', 'scoring', 'run', 'profile'].forEach(J);
 const TL = globalThis.TL, R = TL.Rules, Run = TL.Run, Sc = TL.Scoring, CFG = TL.CFG;
 const RUNS = +process.argv[2] || 300, SEED = +process.argv[3] || 1;
-const QN_PRICE = id => CFG.PRICE.QN[id];   // greedy: the dearest affordable Quý nhân (info-only ones are worth nothing to this bot)
+const CHIEU = +process.argv[4] || 1, TREE = process.argv[5] === 'full', START = process.argv[6] || 'mac_dinh', SEATS = +process.argv[7] === 4 ? 4 : 2;   // node tests/sim.js [runs] [seed] [chieu 1-6] [empty|full tree] [start id] [seats 2|4]
+const FORCE_BAU = process.argv[8] === 'bau';   // 8th arg: every run starts with a random Báu vật (compare its win rate with the same config without it)
+const prof = TL.Profile.empty(); if (TREE) { CFG.META.TREE.forEach(n => { prof.nodes[n.id] = true; }); prof.best = 6; }
+const OPTS = Object.assign(TL.Profile.options(prof, { start: START, chieu: CHIEU }), { seats: SEATS });
+const QN_PRICE = id => CFG.PRICE.QN[id] || 99;   // Báu vật (no table price) counts as dearest   // greedy: the dearest affordable Quý nhân (info-only ones are worth nothing to this bot)
 const USELESS = ['thay_boi', 'co_hang_xom'];
 const QUE_BUY = ['que_loc', 'que_sao', 'que_gap_doi', 'que_them_van', 'que_doi'];   // que_soi is skipped: the AI cannot use the opponent's hand
 const ever = {};   // quy nhan id -> {n, won}
+let doiUsed = 0, giaoN = 0, giaoWon = 0; const bauRuns = { n: 0, won: 0 };
 const NB = 9, bans = Array.from({ length: NB }, () => ({ n: 0, clear: 0, vans: 0, actions: 0, vanN: 0 }));
 let won = 0, endlessReach5 = 0; const lateBest = [];
 
@@ -19,7 +24,7 @@ function playVan(run, plays) {
   for (let g = 0; !st.over; g++) {
     if (g > 400) throw new Error('van did not terminate');
     const seat = st.turn, lvl = seat === 0 ? 3 : CFG.AI_BY_CHANG[Math.min(run.chang, 2)];
-    if (seat === 0) useQue(run, st);
+    if (seat === 0) { useQue(run, st); if (!st.table && run.doi > 0 && run.van.suc <= 2) { const lows = st.hands[0].slice().sort((a, b) => a - b).slice(0, CFG.QUE.DOI_MAX); if (Run.doiBai(run, st, lows).ok) doiUsed++; } }
     const ch = TL.AI.choose(R.view(st, seat), lvl);
     if (seat === 0 && ch.type === 'play' && run.que.includes('que_gap_doi') && !run.flags.x2Next) { const sc = TL.Scoring.scorePlay(run, 0, TL.Cards.detect(ch.cardIds), { chat: false }); if (sc.total >= 120) Run.useQue(run, st, run.que.indexOf('que_gap_doi'), []); }
     const evs = ch.type === 'play' ? R.play(st, seat, ch.cardIds) : R.pass(st, seat);
@@ -48,7 +53,7 @@ function useShopQue(run) { run.que.forEach((q, i) => { if (q === 'que_loc' || q 
 function shopPolicy(run, plays) {
   for (let guard = 0; guard < 30; guard++) {
     const items = Run.shop(run); let pick = -1, best = -1;
-    items.forEach((x, i) => { if (x.kind === 'qn' && !x.sold && !USELESS.includes(x.id) && run.money >= x.price && run.qn.includes(null) && QN_PRICE(x.id) > best) { best = QN_PRICE(x.id); pick = i; } });
+    items.forEach((x, i) => { if (x.kind === 'qn' && !x.sold && !USELESS.includes(x.id) && run.money >= x.price && run.qn.slice(0, run.qnMax).includes(null) && QN_PRICE(x.id) > best) { best = QN_PRICE(x.id); pick = i; } });
     if (pick < 0) { let bn = -1; items.forEach((x, i) => { if (x.kind === 'sao' && !x.sold && run.money >= x.price) { const n = plays[TL.DATA.SAO[x.id].combo] || 0; if (n > bn) { bn = n; pick = i; } } }); }
     if (pick < 0 && run.que.includes(null)) { items.forEach((x, i) => { if (pick < 0 && x.kind === 'que' && !x.sold && QUE_BUY.includes(x.id) && run.money >= x.price + 2) pick = i; }); }
     if (pick < 0) { items.forEach((x, i) => { if (pick < 0 && x.kind === 'pack' && !x.sold && run.money >= x.price + 3 && (run.qn.includes(null) || run.que.includes(null))) pick = i; }); }
@@ -67,15 +72,16 @@ function shopPolicy(run, plays) {
 
 const lastBest = [];
 for (let r = 0; r < RUNS; r++) {
-  const run = Run.create((SEED * 100003 + r * 7919) >>> 0), plays = {}; let guard = 0, wonThis = false;
+  const run = Run.create((SEED * 100003 + r * 7919) >>> 0, OPTS), plays = {}; let guard = 0, wonThis = false;
   const owned = new Set();
+  if (FORCE_BAU) { const bp = TL.DATA.BAU_IDS, k = (r * 2654435761 >>> 0) % bp.length, f = run.qn.slice(0, run.qnMax).indexOf(null); run.qn[f] = { id: bp[k], n: 0 }; }
   for (;;) {
     if (++guard > 400) throw new Error('run did not terminate');
     const idx = run.chang * 3 + run.ban, b = idx < 9 ? bans[idx] : { n: 0, clear: 0, vans: 0, actions: 0 }; b.n++;
-    let res = 'next';
+    let res = 'next'; if (idx === 8) giaoN++;
     while (res === 'next') { const o = playVan(run, plays); b.vans++; b.actions += o.actions; run.qn.forEach(q => q && owned.add(q.id)); res = Run.endVan(run, o.end); }
     if (res === 'lost') break;
-    b.clear++;
+    b.clear++; if (idx === 8) giaoWon++;
     Run.payout(run);
     run.flags.x2Next = false;
     if (run.endless || idx < 8) shopPolicy(run, plays);
@@ -84,6 +90,7 @@ for (let r = 0; r < RUNS; r++) {
     if (run.chang >= 4 && wonThis && !run.reached5) { run.reached5 = true; endlessReach5++; }
   }
   if (run.phase !== 'lost') throw new Error('bad end phase');
+  const hasBau = [...owned].some(id => TL.DATA.QUY_NHAN[id].rarity === 'bau'); if (hasBau) { bauRuns.n++; if (wonThis) bauRuns.won++; }
   owned.forEach(id => { const e = ever[id] || (ever[id] = { n: 0, won: 0 }); e.n++; if (wonThis) e.won++; });
   lastBest.push(run.stats.bestPot); if (run.chang >= 2) lateBest.push(run.stats.bestPot);
 }
@@ -106,3 +113,6 @@ console.log('quy nhan win rate (owned >= 20 runs), avg ' + pct(avgW) + ': ' + qn
 const e5 = won ? endlessReach5 / won : 0;
 console.log('endless: reached chang 5 in ' + pct(e5) + ' of won runs (target 10-30%) ' + (e5 >= .1 && e5 <= .3 ? 'OK' : 'MISS') + ' | no qn >2x avg: ' + (over.length ? 'MISS ' + over.map(r => r.id).join(',') : 'OK'));
 console.log('targets: won 25-40% ' + (w >= .25 && w <= .4 ? 'OK' : 'MISS') + ', chang1 cleared ' + pct(c1) + ' >=85% ' + (c1 >= .85 ? 'OK' : 'MISS') + ', ban<50% ' + (flags.length ? flags.join(',') : 'none') + ', all runs terminated OK');
+
+const ci = (a, n) => n ? 100 * a / n : 0;
+console.log('config: chieu ' + CHIEU + ' tree ' + (TREE ? 'full' : 'empty') + ' start ' + START + ' seats ' + SEATS + ' | doi used/run ' + (doiUsed / RUNS).toFixed(2) + ' | giao thua (c3b3) reached ' + giaoN + ' cleared ' + pct(giaoN ? giaoWon / giaoN : 0) + ' (target 45-65%) | bau runs ' + bauRuns.n + ' win ' + pct(bauRuns.n ? bauRuns.won / bauRuns.n : 0) + ' = ' + (w && bauRuns.n ? (bauRuns.won / bauRuns.n / w).toFixed(2) : '-') + 'x avg (target <=1.6)');

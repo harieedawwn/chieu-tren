@@ -30,11 +30,34 @@ Mùng Một chưa tới mà nhà nào cũng đã trải chiếu. Bạn ngồi xu
 
 - Tiến Lên miền Nam 1 đối 1 với máy: 3 chặng, 9 bàn, mỗi chặng một bàn trùm có Luật nhà.
 - Điểm × Nhân kiểu Balatro, gom vào Hũ; chặt nhân đôi hũ.
-- 20 Quý nhân (thường, hiếm, quý), 6 Sao, 6 Quẻ dùng một lần, Bao lì xì mở ra chọn 1 trong 3.
+- 28 Quý nhân (thường, hiếm, quý) cộng 5 Báu vật, 6 Sao, 6 Quẻ dùng một lần, Bao lì xì mở ra chọn 1 trong 3.
 - 6 Luật nhà, rút ngẫu nhiên mỗi chuyến, không trùng.
 - Chợ Tết sau mỗi bàn: mua, bán, đổi hàng, mở bao.
 - Chơi tiếp: vô tận sau Mùng Một; Sổ tay ghi lại mọi thứ đã gặp.
 - Hướng dẫn của Ông Táo, lưu tự động, chạy trên điện thoại và máy tính, không cần cài đặt.
+
+## Chế độ chơi
+
+| Chế độ | Mô tả |
+|---|---|
+| **Chơi thường** | Ba chặng, chín bàn; bàn trùm chặng 3 là **Sòng Giao thừa**: bạn đấu boss và hai người họ hàng (4 người). |
+| **Thử thách ngày** | Cùng một ván cho mọi người (Chiếu 2, không Khởi đầu, không tiện ích); mỗi ngày một lượt, có nút Sao chép kết quả. |
+| **Vô tận** | Mở sau lần thắng đầu: vào thẳng chặng 4 trở đi. |
+| **Sòng bốn** | Mọi bàn là 4 người. Mở khi Tiếng tăm đủ cấp 3. |
+
+## Tiếng tăm, Cây mai, Khởi đầu, Chiếu
+
+- Mỗi chuyến cho **Tiếng tăm** (kinh nghiệm: bàn vượt qua, chặt, hũ lớn, thắng). Mỗi cấp lên được 1 **hoa mai**.
+- **Cây mai** dùng hoa mai mở thêm Quý nhân, Quẻ, Báu vật vào kho, các kiểu **Khởi đầu** và tiện ích (thêm Lượt đổi, Lãi dày, Đổi hàng rẻ, Ô giữ đồ).
+- **Khởi đầu**: Mặc định; Con nhà nghèo (0 lì xì, Trần Lãi cao hơn); Con cưng (một Quý nhân hiếm, mục tiêu +15%); Dân chơi (có Dân chơi Chợ Lớn, không có Lượt đổi); Học trò (mọi kiểu bài cấp cao, ít ô Quý nhân); Có lộc (2 Quẻ ngẫu nhiên).
+- **Chiếu** 1-6: thắng Chiếu nào thì mở Chiếu kế. Chiếu 2 mục tiêu +15%, 3 đối thủ luôn ở cấp cao nhất, 4 Trần Lãi −2, 5 bàn trùm cuối có hai luật nhà, 6 bớt một Lượt đổi, bàn lớn cũng có luật nhà và mục tiêu thêm 30%.
+
+## Bài xấu, Lượt đổi, Sức bài, Khí thế
+
+- **Sức bài** (sao trên bài tay) cho biết bài chia đẹp hay xấu; tay xấu nhất (1 sao) là **Bài xấu**.
+- **Lượt đổi**: khi đang dẫn một hũ mới, đổi 1-3 lá lấy lá chưa chia; mỗi bàn có số lượt giới hạn (nút **Đổi**, phím `D`).
+- **Khí thế** (3 chấm): đánh tự tin và liền mạch thì lên, càng cao hiệu ứng và Nhân càng mạnh; bị chặn thì tụt.
+- **Báu vật**: 5 Quý nhân đặc biệt (viền lửa tím), chỉ ra từ chặng sau: Thần Tài, Ông Địa, Táo Quân, Vua bài, Cá chép.
 
 ## Hướng dẫn
 
@@ -159,6 +182,7 @@ node tests/qn.test.js      # Quý nhân mới
 node tests/que.test.js     # Quẻ, chợ, Bao lì xì, vô tận, lưu game
 node tests/run.test.js     # chuyến đi, chợ, lưu game
 node tests/sim.js 300      # mô phỏng 300 chuyến (bàn trùm ngẫu nhiên, vô tận)
+node tests/sim.js 300 1 6 full mac_dinh 2 bau   # [chuyến] [seed] [Chiếu] [empty|full cây] [Khởi đầu] [ghế 2|4] [bau = bắt đầu có Báu vật]
 # thêm vào URL:  ?auto&seed=1   (máy tự chơi hết một chuyến)   ?seed=7 (cố định bài)   ?auto&endless (tự chơi chặng vô tận)
 ```
 
