@@ -7,7 +7,7 @@
  *   TL.Rules.view(state, seat)          -> View (own hand only; no hands/log); legal/canPass filled on seat's turn
  *   TL.Rules.winner(state)              -> 0 | 1 | null
  *   TL.Rules.swap(state, seat, cardIds, rng) -> Event[]  {type:'swap', seat, out, in}; swaps 1..3 own cards with cards not dealt this ván; own turn only; [] if illegal
- * mods: noChat, mustBeat, oppLeads, sameSuitStraight (sảnh needs one suit), noHeoFinish (last play may not contain a heo), twoVans (read by Run)
+ * mods: passMax (seat 0 may pass at most this many times a ván while it has a legal play; set by Run for Vua Bài), noChat, mustBeat, oppLeads, sameSuitStraight (sảnh needs one suit), noHeoFinish (last play may not contain a heo), twoVans (read by Run)
  * state.reveal = [bool, bool]: reveal[seat] true -> view(state, seat).oppHand (only then present) = the opponent's whole hand; both cleared when a hũ is taken (event 'vong').
  * state.peek = id[] opponent cards shown by Thầy bói (set by Run.startVan, else []).
  * scoreFn(seat, combo, {chat, target, pot, lead}) -> Score; rules adds score.total to the pot and applies the chặt multiplier.
@@ -32,7 +32,7 @@
     const low = Math.min(...hands[0], ...hands[1]);
     const leader = mods.oppLeads ? 1 : o.leader === 0 || o.leader === 1 ? o.leader : hands[0].includes(low) ? 0 : 1;
     const s = { hands: hands, table: null, vongPlays: [], pot: 0, turn: leader, leader: leader, mods: mods, plays: [0, 0], played: [],
-      log: [], over: false, winner: null, toiTrang: null, reveal: [false, false], peek: [], scoreFn: o.scoreFn || zero };
+      log: [], passes: [0, 0], over: false, winner: null, toiTrang: null, reveal: [false, false], peek: [], scoreFn: o.scoreFn || zero };
     const evs = [{ type: 'deal', hands: [hands[0].slice(), hands[1].slice()], leader: leader }];
     const quad = hands.findIndex(h => [48, 49, 50, 51].every(x => h.includes(x)));
     if (quad >= 0) {
@@ -46,7 +46,8 @@
   function legal(s, seat) {
     if (s.over || s.turn !== seat) return { plays: [], canPass: false };
     const plays = C.legalPlays(s.hands[seat], s.table && s.table.combo, s.mods);
-    return { plays: plays, canPass: !!s.table && !(s.mods.mustBeat && plays.length > 0) };
+    const capped = s.mods.passMax !== undefined && seat === 0 && s.passes[0] >= s.mods.passMax && plays.length > 0;
+    return { plays: plays, canPass: !!s.table && !(s.mods.mustBeat && plays.length > 0) && !capped };
   }
 
   function play(s, seat, ids) {
@@ -56,7 +57,7 @@
     const t = s.table && s.table.combo, k = C.beats(c, t, s.mods);
     if (!k) return [];
     if (s.mods.noHeoFinish && C.finishesWithHeo(c, s.hands[seat]) && !C.legalPlays(s.hands[seat], t, s.mods).some(x => x.cards.join() === c.cards.join())) return [];
-    const chat = k === 'chat', sc = s.scoreFn(seat, c, { chat: chat, target: t, pot: s.pot, lead: !t });
+    const chat = k === 'chat', sc = s.scoreFn(seat, c, { chat: chat, target: t, pot: s.pot, lead: !t, last: s.hands[seat].length === c.cards.length });
     s.pot += sc.total;
     const evs = [{ type: 'play', seat: seat, combo: c, score: sc, pot: s.pot }];
     if (chat) {
@@ -76,6 +77,7 @@
 
   function pass(s, seat) {
     if (!legal(s, seat).canPass) return [];
+    s.passes[seat]++;
     const w = 1 - seat, evs = [{ type: 'pass', seat: seat }, { type: 'vong', winner: w, pot: s.pot, combo: s.table.combo }, { type: 'turn', seat: w, lead: true }];
     s.pot = 0; s.table = null; s.vongPlays = []; s.turn = w; s.reveal = [false, false];
     return emit(s, evs);

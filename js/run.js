@@ -20,7 +20,7 @@
 (function (TL) {
   'use strict';
   const CFG = TL.CFG, D = TL.DATA, T = D.TEXT, S = TL.Scoring;
-  const SAO_IDS = Object.keys(D.SAO), QN_IDS = Object.keys(D.QUY_NHAN), QUE_IDS = Object.keys(D.QUE), TYPES = ['rac', 'doi', 'sam', 'sanh', 'doithong', 'tuquy'];
+  const SAO_IDS = Object.keys(D.SAO), QN_IDS = Object.keys(D.QUY_NHAN).filter(id => D.QUY_NHAN[id].rarity !== 'bau'), QUE_IDS = Object.keys(D.QUE), TYPES = ['rac', 'doi', 'sam', 'sanh', 'doithong', 'tuquy'];
   const PHASES = ['ban', 'payout', 'shop', 'won', 'lost'];
 
   function rand(run) { run.rn = (run.rn || 0) + 1; return TL.makeRng(((run.seed ^ 0xA5F00D) + Math.imul(run.rn, 2654435761)) >>> 0)(); }
@@ -65,7 +65,7 @@
     run.van = { stack: 0, oppTake: 0 };
     if (typeof run.doi !== 'number') run.doi = CFG.DOI_PER_BAN;
     const st = TL.Rules.newVan({
-      rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: b.mods,
+      rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: run.qn.some(q => q && q.id === 'vua_bai') ? Object.assign({}, b.mods, { passMax: CFG.BAU.VUA_BAI_PASSES }) : b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
     });
     run.van.suc = TL.AI.strength(st.hands[0]); run.van.xau = run.van.suc === 1;
@@ -109,16 +109,19 @@
     return 'next';
   }
 
+  const hasQn = (run, id) => run.qn.some(q => q && q.id === id);
   const isLast = run => run.chang === 2 && run.ban === 2 && !run.endless;
 
   function payout(run) {
     if (run.paid && run.lastPayout) return run.lastPayout;
-    const b = ban(run), lines = [], unused = b.vanLeft, interest = Math.min(CFG.INTEREST_MAX, Math.floor(run.money / CFG.INTEREST_PER));
+    const b = ban(run), lines = [], unused = b.vanLeft, tt = hasQn(run, 'than_tai'), interest = tt ? Math.floor(run.money / CFG.BAU.THAN_TAI_PER) : Math.min(CFG.INTEREST_MAX, Math.floor(run.money / CFG.INTEREST_PER));
     lines.push({ label: T.kind[b.kind], amount: CFG.PAYOUT[b.kind] });
     if (unused > 0 && CFG.UNUSED_VAN_PTS > 0) lines.push({ label: T.payout.unused.replace('%d', unused), amount: CFG.UNUSED_VAN_PTS * unused });
     if (run.doi > 0 && CFG.DOI_UNUSED_LIXI > 0) lines.push({ label: T.payout.khongDoi.replace('%d', run.doi), amount: CFG.DOI_UNUSED_LIXI * run.doi });
+    if (run.doi > 0 && hasQn(run, 'ba_ngoai')) lines.push({ label: T.payout.baNgoai.replace('%d', run.doi), amount: CFG.QN4.BA_NGOAI_LIXI * run.doi });
     if (interest > 0) lines.push({ label: T.payout.interest, amount: interest });
     const total = lines.reduce((a, l) => a + l.amount, 0);
+    if (b.kind === 'trum' && hasQn(run, 'tao_quan')) TYPES.forEach(t => { run.sao[t] = (run.sao[t] || 1) + CFG.BAU.TAO_QUAN_LEVELS; });
     run.money += total; run.stats.earned = (run.stats.earned || 0) + total; run.paid = true; run.lastPayout = { lines: lines, total: total };
     if (!isLast(run)) { run.phase = 'shop'; run.shop = { items: [], rerolls: 0, n: 0 }; }
     return run.lastPayout;
@@ -140,6 +143,11 @@
     while (qs.length < CFG.SHOP.QN_COUNT) {
       const pool = QN_IDS.filter(id => !owned.includes(id) && !qs.includes(id)); if (!pool.length) break;
       qs.push(pickRare(rng, pool, D.QUY_NHAN));
+    }
+    const rb = TL.makeRng((run.seed ^ 0xBA0BA0) + 7919 * (run.vanNo + 1) + 104729 * run.shop.n);   // Báu vật: own rng so the other draws keep their order
+    if (run.chang >= CFG.BAU.MIN_CHANG && owned.filter(id => D.QUY_NHAN[id].rarity === 'bau').length < CFG.BAU.MAX_OWNED) {
+      const bp = D.BAU_IDS.filter(id => !owned.includes(id));
+      for (let k = 0; k < qs.length && bp.length; k++) if (rb() < CFG.BAU.CHANCE) { qs[k] = bp[Math.floor(rb() * bp.length)]; break; }
     }
     const sp = SAO_IDS.slice(), ss = [];
     while (ss.length < CFG.SHOP.SAO_COUNT && sp.length) ss.push(sp.splice(Math.floor(rng() * sp.length), 1)[0]);
@@ -167,6 +175,7 @@
     if (!it || it.sold) return { ok: false, why: 'sold' };
     if (it.kind === 'pack') return openPack(run, i);
     if (it.kind === 'qn' && run.qn.indexOf(null) < 0) return { ok: false, why: 'slots' };
+    if (it.kind === 'qn' && D.QUY_NHAN[it.id].rarity === 'bau' && run.qn.filter(q => q && D.QUY_NHAN[q.id].rarity === 'bau').length >= CFG.BAU.MAX_OWNED) return { ok: false, why: 'slots' };
     if (it.kind === 'que' && run.que.indexOf(null) < 0) return { ok: false, why: 'slots' };
     if (run.money < it.price) return { ok: false, why: 'money' };
     run.money -= it.price; it.sold = true; give(run, it.kind, it.id);
@@ -214,7 +223,7 @@
   }
 
   function reroll(run) {
-    const cost = CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls;
+    const cost = (CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls) * (hasQn(run, 'than_tai') ? CFG.BAU.THAN_TAI_REROLL_X : 1);
     if (run.money < cost) return { ok: false, why: 'money' };
     run.money -= cost; run.shop.rerolls++; roll(run);
     return { ok: true };

@@ -138,7 +138,8 @@
       if (!selOk) return;
       const ids = selIds(); ready = false; const evs = RU.play(st, 0, ids); if (evs.length) process(evs); else { ready = true; say(T.msg.illegal); }
     } else if (id === 'bo') {
-      if (!leg.canPass) { if (!st.table) return; if (st.mods.mustBeat && info.rule) { FX.juice(J.house, 1.2); say(ruleSay(T.msg.mustBeat)); } else say(T.msg.mustBeat); return; }
+      if (!leg.canPass) { if (!st.table) return; if (st.mods.passMax !== undefined && st.passes[0] >= st.mods.passMax && !st.mods.mustBeat) { say(T.msg.passMax); return; }
+      if (st.mods.mustBeat && info.rule) { FX.juice(J.house, 1.2); say(ruleSay(T.msg.mustBeat)); } else say(T.msg.mustBeat); return; }
       ready = false; hand.forEach(s => { s.selected = false; }); process(RU.pass(st, 0));
     } else if (id === 'doi') {
       const res = TL.Run.doiBai(run, st, selIds());

@@ -12,7 +12,7 @@
  */
 (function (TL) {
   'use strict';
-  const CFG = TL.CFG, D = TL.DATA, T = D.TEXT, Q = CFG.QN, Q2 = CFG.QN2, QE = CFG.QUE;
+  const CFG = TL.CFG, D = TL.DATA, T = D.TEXT, Q = CFG.QN, Q2 = CFG.QN2, QE = CFG.QUE, Q4 = CFG.QN4, BA = CFG.BAU;
   const hasHeo = cards => cards.some(c => (c >> 2) === 12);
   const slotOf = (run, id) => run.qn.findIndex(s => s && s.id === id);
   const num = n => String(Math.round(n * 100) / 100).replace('.', ',');
@@ -54,6 +54,14 @@
         else if (s.id === 'chu_ba_gac' && combo.type === 'sam') t = Q2.BA_GAC_THE;
         else if (s.id === 'ba_mai' && combo.type === 'doi' && rank >= 8 && rank <= 10) x = Q2.BA_MAI_X;
         else if (s.id === 'thang_chau' && nPlays === 0) t = Q2.THANG_CHAU_THE;
+        else if (s.id === 'co_ba_sai_gon' && combo.type === 'sanh' && combo.len >= Q4.SAI_GON_MIN) x = Q4.SAI_GON_X;
+        else if (s.id === 'chu_ban_pho') t = (s.n || 0) * Q4.BAN_PHO_THE;
+        else if (s.id === 'anh_bo_doi' && run.flags && run.flags.boDoi) t = Q4.BO_DOI_THE;
+        else if (s.id === 'cau_ut' && combo.type === 'rac' && ctx && ctx.last) x = Q4.CAU_UT_X;
+        else if (s.id === 'chi_hang_ca' && ctx && ctx.target && !ctx.chat && rank === (ctx.target.top >> 2) + 1) d = Q4.CHI_HANG_DIEM;
+        else if (s.id === 'ong_dia') t = s.n || 0;
+        else if (s.id === 'vua_bai') x = BA.VUA_BAI_X;
+        else if (s.id === 'ca_chep' && s.n) x = Math.round(Math.pow(BA.CA_CHEP_X, s.n) * 100) / 100;
         if (x !== 1) {
           the *= x;
           steps.push({ kind: 'qn', ref: s.id, slot: slot, xThe: x, label: '×' + num(x) + ' ' + T.hud.the });
@@ -64,8 +72,10 @@
         steps.push({ kind: 'qn', ref: s.id, slot: slot, diem: d || undefined, the: t || undefined, label: d ? '+' + d + ' ' + T.hud.diem : '+' + t + ' ' + T.hud.the });
       });
       if (run.van.xau) {
-        the *= CFG.XAU_X;
-        steps.push({ kind: 'bonus', ref: 'xau', xThe: CFG.XAU_X, label: T.stamp.baiXau + ' ×' + num(CFG.XAU_X) });
+        const xx = slotOf(run, 'ong_thay_tuong') >= 0 ? Q4.THAY_TUONG_X : CFG.XAU_X;
+        the *= xx;
+        steps.push({ kind: 'bonus', ref: 'xau', xThe: xx, label: T.stamp.baiXau + ' ×' + num(xx) });
+        if (xx !== CFG.XAU_X) steps[steps.length - 1].slot = slotOf(run, 'ong_thay_tuong');
       }
       if (run.flags && run.flags.x2Next) {
         the *= QE.GAP_DOI_X;
@@ -93,6 +103,7 @@
     if (ev.type === 'play' && ev.seat === 0) {
       run.van.stack = 0; run.van.nPlays = (run.van.nPlays || 0) + 1; run.van.heoPlayed = (run.van.heoPlayed || 0) + heoIn(ev.combo ? ev.combo.cards : []);
       if (run.flags && run.flags.x2Next) run.flags.x2Next = false;
+      if (run.flags && run.flags.boDoi) run.flags.boDoi = false;
     } else if (ev.type === 'pass' && ev.seat === 0) {
       const s = slotOf(run, 'thang_ban_than');
       if (s >= 0) {
@@ -107,7 +118,17 @@
           out.push({ kind: 'qn', ref: 'heo_dat', slot: s, the: Q.HEO_DAT_THE, label: '+' + Q.HEO_DAT_THE + ' ' + T.hud.the });
         }
       }
-      let s = slotOf(run, 'ba_ve_so');
+      let s = slotOf(run, 'chu_ban_pho');
+      if (s >= 0) {
+        run.qn[s].n = (run.qn[s].n || 0) + 1;
+        out.push({ kind: 'qn', ref: 'chu_ban_pho', slot: s, the: Q4.BAN_PHO_THE, label: '+' + run.qn[s].n * Q4.BAN_PHO_THE + ' ' + T.hud.the });
+      }
+      s = slotOf(run, 'ca_chep');
+      if (s >= 0 && ev.combo && ev.combo.type === 'sanh') {
+        run.qn[s].n = (run.qn[s].n || 0) + 1;
+        out.push({ kind: 'qn', ref: 'ca_chep', slot: s, xThe: BA.CA_CHEP_X, label: '×' + num(Math.pow(BA.CA_CHEP_X, run.qn[s].n)) + ' ' + T.hud.the });
+      }
+      s = slotOf(run, 'ba_ve_so');
       if (s >= 0) {
         run.van.rolls = (run.van.rolls || 0) + 1;
         const r = TL.makeRng(((run.seed ^ 0x51ED27) + Math.imul(run.vanNo + 1, 2654435761) + Math.imul(run.van.rolls, 40503)) >>> 0)();
@@ -115,18 +136,28 @@
       }
       s = slotOf(run, 'ong_cau_ca');
       if (s >= 0 && ev.pot >= Q2.CAU_CA_FRAC * TL.Run.ban(run).target) out.push(lixi(run, s, Q2.CAU_CA_LIXI, 'ong_cau_ca'));
+    } else if (ev.type === 'vong' && ev.winner !== 0) {
+      const s = slotOf(run, 'chu_ban_pho');
+      if (s >= 0 && run.qn[s].n) { run.qn[s].n = 0; out.push({ kind: 'qn', ref: 'chu_ban_pho', slot: s, label: '0' }); }
     } else if (ev.type === 'chat' && ev.victim === 0 && ev.target && hasHeo(ev.target.cards)) {
-      const s = slotOf(run, 'heo_dat');
+      let s = slotOf(run, 'heo_dat');
       if (s >= 0) {
         run.qn[s] = null;
         out.push({ kind: 'qn', ref: 'heo_dat', slot: s, dissolve: true, label: T.stamp.heoVo });
       }
+      s = slotOf(run, 'anh_bo_doi');
+      if (s >= 0) { run.flags.boDoi = true; out.push(lixi(run, s, Q4.BO_DOI_LIXI, 'anh_bo_doi')); }
     } else if (ev.type === 'deal') {
       const s = slotOf(run, 'thay_boi');
       if (s >= 0) out.push({ kind: 'qn', ref: 'thay_boi', slot: s, label: T.stamp.thayBoi });
     } else if (ev.type === 'vanEnd' && ev.winner === 0) {
       const s = slotOf(run, 'chi_ban_hoa'), n = run.van.heoPlayed || 0;
       if (s >= 0 && n > 0) out.push(lixi(run, s, Q2.BAN_HOA_LIXI * n, 'chi_ban_hoa'));
+      const od = slotOf(run, 'ong_dia'), h = ev.heo ? ev.heo[1] : 0;
+      if (od >= 0 && h > 0) {
+        run.qn[od].n = (run.qn[od].n || 0) + BA.ONG_DIA_THE * h;
+        out.push({ kind: 'qn', ref: 'ong_dia', slot: od, the: BA.ONG_DIA_THE * h, label: '+' + BA.ONG_DIA_THE * h + ' ' + T.hud.the });
+      }
     }
     return out;
   }
@@ -141,7 +172,7 @@
     steps.push({ kind: 'bonus', ref: 'veNhat', diem: d, label: T.stamp.veNhat });
     const h = ev.heo[1];
     if (h > 0) { the *= Math.pow(CFG.THOI_X, h); steps.push({ kind: 'bonus', ref: 'thoi', xThe: the, label: fill(h > 1 ? T.stamp.thoiHeoN : T.stamp.thoiHeo, h) }); }
-    if (ev.cong) { the *= CFG.CONG_X; steps.push({ kind: 'bonus', ref: 'cong', xThe: the, label: T.stamp.cong }); }
+    if (ev.cong) { the *= CFG.CONG_X * (slotOf(run, 'ong_giao') >= 0 ? Q4.ONG_GIAO_X : 1); steps.push({ kind: 'bonus', ref: 'cong', xThe: the, label: T.stamp.cong }); }
     if (ev.toiTrang) { the *= CFG.TOI_TRANG_X; steps.push({ kind: 'bonus', ref: 'toiTrang', xThe: the, label: T.stamp.toiTrang }); }
     return { diem: d, the: the, total: Math.floor(d * the), steps: steps };
   }

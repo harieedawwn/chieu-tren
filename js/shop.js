@@ -39,11 +39,11 @@
 
   const data = (kind, id) => kind === 'qn' ? D.QUY_NHAN[id] : kind === 'que' ? D.QUE[id] : kind === 'sao' ? D.SAO[id] : D.PACK;
   const texOf = (kind, id) => kind === 'qn' ? A.quyNhan(id) : kind === 'que' ? A.que(id) : kind === 'sao' ? A.sao(id) : A.pack(false);
-  const RC = { thuong: PAL.giayDo, hiem: PAL.menLam, quy: PAL.vangKim };
+  const RC = { thuong: PAL.giayDo, hiem: PAL.menLam, quy: PAL.vangKim, bau: TL.CFG.BAU.AURA[1] };
   const statsOf = (type, lv) => { const b = CFG.BASE[type], g = CFG.SAO_GAIN[type]; return { diem: b.diem + (lv - 1) * g.diem, the: b.the + (lv - 1) * g.the }; };
   const sellValue = (kind, id) => Math.floor((kind === 'que' ? CFG.PRICE.QUE[id] : CFG.PRICE.QN[id]) * CFG.SHOP.SELL_RATIO);
 
-  let run, items, ownS, queS, shopS, fly, sel, btns, cv, L, key, lvl, note, noteTok = 0, menuDown = false, menuHov = false, pk = null;
+  let run, items, ownS, queS, shopS, fly, sel, btns, cv, L, key, lvl, note, noteTok = 0, bauSeen = -1, humAt = -1, menuDown = false, menuHov = false, pk = null;
 
   const freeQn = () => run.qn.indexOf(null), freeQue = () => run.que.indexOf(null);
   const rerollCost = () => CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls;
@@ -135,7 +135,7 @@
     const g = G(); run = (args && args.run) || g.run; g.run = run;
     FX.reset(); if (TL.BG) TL.BG.setMood('shop');
     items = TL.Run.shop(run); cv = { lixi: run.money }; sel = null; lvl = null; fly = []; btns = Btns(); key = ''; note = null; menuDown = false; pk = null;
-    lay(); build(); buildBtns(); saveRun(run);
+    lay(); build(); buildBtns(); saveRun(run); bauIntro();
     if (TL.Tutorial && !g.flags.auto) TL.Tutorial.onShop();
     shopS.forEach((s, i) => { if (s) s.deal({ x: L.dealFrom.x, y: L.dealFrom.y }, 0.1 + i * 0.08, texOf(items[i].kind, items[i].id)); });
     snd('shuffle');
@@ -302,7 +302,7 @@
     ctx.restore();
   }
   function chip(ctx, rarity, x, y) {
-    const lab = T.rarity[rarity], c = rarity === 'quy' ? { fill: PAL.vangKim, ink: PAL.denSon } : rarity === 'hiem' ? { fill: PAL.menLam, ink: PAL.giayDo } : { fill: PAL.denSon, ink: PAL.giayDo };
+    const lab = T.rarity[rarity], c = rarity === 'bau' ? { fill: TL.CFG.BAU.AURA[0], ink: PAL.giayDo } : rarity === 'quy' ? { fill: PAL.vangKim, ink: PAL.denSon } : rarity === 'hiem' ? { fill: PAL.menLam, ink: PAL.giayDo } : { fill: PAL.denSon, ink: PAL.giayDo };
     A.badge(ctx, lab, x, y, { size: Math.max(11, L.u - 2), fill: c.fill, ink: c.ink, anchor: 'center' });
   }
   function infoText(ctx, rect, o) {   // o = {head, rarity, lines:[[text, color]]}
@@ -331,6 +331,17 @@
     const kind = sel.z === 'que' ? 'que' : 'qn', id = kind === 'que' ? run.que[sel.i] : run.qn[sel.i] && run.qn[sel.i].id; if (!id) return;
     infoText(ctx, rect, describe(kind, id, [[T.shop.sellFor.replace('%d', sellValue(kind, id)), PAL.vangKim]]));
   }
+  const isBau = id => D.QUY_NHAN[id] && D.QUY_NHAN[id].rarity === 'bau';
+  function auras(ctx) {   // Báu vật: flat purple pixel fire around the card, only for qn slots / offers that are still there
+    const t = Date.now() / 1000, px = Math.max(2, Math.round(L.u / 4));
+    items.forEach((it, i) => { if (!it.sold && shopS[i] && it.kind === 'qn' && isBau(it.id)) { const r = L.card[i]; TL.Art.aura(ctx, r.x, r.y, r.w, r.h, t, px); } });
+    run.qn.forEach((q, i) => { if (q && ownS[i] && isBau(q.id)) { const r = L.own[i]; TL.Art.aura(ctx, r.x, r.y, r.w, r.h, t, px); } });
+  }
+  function bauIntro() {   // a Báu vật in the offers: its cell shakes and the stamp slams down once per shop
+    const i = items.findIndex(it => it.kind === 'qn' && !it.sold && isBau(it.id));
+    if (i < 0 || bauSeen === run.shop.n) return; bauSeen = run.shop.n;
+    setTimeout(() => { if (shopS[i]) shopS[i].juice(1.6); FX.stamp(T.stamp.bauVat, 'gold'); snd('stamp'); }, 450);
+  }
   function draw(ctx) {
     lay();
     const u = L.u, B = L.bar, g = G();
@@ -344,6 +355,7 @@
     L.own.concat(L.que).forEach(r => A.panel(ctx, r, { fill: PAL.denSon, border: PAL.nauCanhGian, shadow: null, radius: 3 }));
     L.card.forEach((r, i) => { if (items[i].sold || !shopS[i]) { A.panel(ctx, r, { fill: PAL.denSon, border: PAL.nauCanhGian, shadow: null, radius: 3 }); if (items[i].sold) txt(ctx, T.shop.sold, r.x + r.w / 2, r.y + r.h / 2 - 8, fit(T.shop.sold, u, r.w - 6, 9), PAL.giayDo, 'center'); } });
     if (sel && !pk) { const r = sel.z === 'shop' ? L.card[sel.i] : sel.z === 'que' ? L.que[sel.i] : L.own[sel.i]; if (r) A.panel(ctx, { x: r.x - 4, y: r.y - 4 - 16, w: r.w + 8, h: r.h + 8 + 16 }, { fill: PAL.denSon, border: PAL.vangKim, shadow: null, radius: 4 }); }
+    auras(ctx);
     SP.drawAll(ctx, ownS.filter(Boolean)); SP.drawAll(ctx, queS.filter(Boolean)); SP.drawAll(ctx, shopS.filter(Boolean));
     shopS.forEach((s, i) => { if (!s || items[i].sold) return; if (why(i)) { const sz = s.size(); ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = PAL.denSon; ctx.fillRect(Math.round(s.V.x - sz.w / 2), Math.round(s.V.y - sz.h / 2), Math.round(sz.w), Math.round(sz.h)); ctx.restore(); } });
     items.forEach((it, i) => { if (!it.sold && shopS[i] && (it.kind === 'qn' || it.kind === 'que')) mark(ctx, L.card[i], data(it.kind, it.id).rarity); });
@@ -370,7 +382,9 @@
   function pointer(e) {
     if (e.type === 'move') {
       menuHov = inR(L.menu, e.x, e.y); btns.pointer(e);
-      SP.hover(pk ? pk.cards : [].concat(ownS, queS, shopS).filter(Boolean), e.x, e.y); return;
+      SP.hover(pk ? pk.cards : [].concat(ownS, queS, shopS).filter(Boolean), e.x, e.y);
+      if (!pk) { let h = -1; items.forEach((it, i) => { if (!it.sold && it.kind === 'qn' && isBau(it.id) && inR(L.card[i], e.x, e.y)) h = i; }); run.qn.forEach((q, i) => { if (q && isBau(q.id) && inR(L.own[i], e.x, e.y)) h = 100 + i; }); if (h >= 0 && h !== humAt) snd('hum'); humAt = h; }
+      return;
     }
     if (e.type === 'down') {
       if (inR(L.menu, e.x, e.y)) { menuDown = true; snd('button'); return; }

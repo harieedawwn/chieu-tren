@@ -501,8 +501,10 @@
         while (sz > 8 && A().textWidth(def.name, sz) > maxW) sz--;
         if (sz >= 9) txt(ctx, def.name, s.x + s.w / 2, by, sz, { align: 'center', min: 8, shadow: false, outline: false, color: PAL.giayDo, raw: true });
       }
-      if (q.n > 0) {
-        const t = '+' + q.n, sz = Math.max(10, Math.round(11 * UI)), bs = A().badgeSize(t, sz, {});
+      if (DATA.QUY_NHAN[q.id] && DATA.QUY_NHAN[q.id].rarity === 'bau' && A().aura) A().aura(ctx, s.x, s.y, s.w, s.h, Date.now() / 1000, Math.max(2, Math.round(3 * UI)));
+      const bt = q.id === 'ca_chep' ? (q.n > 0 ? '×' + String(Math.round(Math.pow(CFG.BAU.CA_CHEP_X, q.n) * 100) / 100).replace('.', ',') : '') : q.id === 'chu_ban_pho' ? (q.n > 0 ? '+' + q.n * CFG.QN4.BAN_PHO_THE : '') : q.n > 0 ? '+' + q.n : '';
+      if (bt) {
+        const t = bt, sz = Math.max(10, Math.round(11 * UI)), bs = A().badgeSize(t, sz, {});
         A().badge(ctx, t, s.x + s.w - bs.w / 2 - 2, s.y + 3 + bs.h / 2, { size: sz, fill: PAL.doSon, ink: PAL.giayDo, edge: PAL.vangKim, shadow: false, bw: 1 });
       }
     });

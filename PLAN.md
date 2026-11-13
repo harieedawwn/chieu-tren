@@ -2,7 +2,7 @@
 - [x] 1 Fixes: heo-chặt fuzz test, boss rule card, fullscreen + PWA (D1)
 - [x] 2 Landscape-phone layout and size hierarchy (D2)
 - [x] 3 Bad hands: Lượt đổi and Sức bài (D3)
-- [ ] 4 Content: 8 Quý nhân, 5 Báu vật with aura, js/art3.js (D4)
+- [x] 4 Content: 8 Quý nhân, 5 Báu vật with aura, js/art3.js (D4)
 - [ ] 5 Feel: Khí thế, winning finale, louder layered sounds, special palettes (D5)
 - [ ] 6 Meta logic: profile, Tiếng tăm, Cây mai, Khởi đầu, Chiếu, daily seed; tests (D6)
 - [ ] 7 Screens: mode select, pickers, Cây mai screen, XP on end screen, transitions (D7)
@@ -10,7 +10,7 @@
 - [ ] 9 4-player table UI, Sòng Giao thừa, Sòng bốn mode (D9)
 - [ ] 10 Balance sim, full checks, README, live check (D10)
 
-Next: Bước 4 (D4 Quý nhân, Báu vật, js/art3.js). Ghi chú bước 3: Run.doiBai + run.doi, AI.strength (CFG.SUC_BAI), bước Bài xấu trong scorePlay (run.van.xau), nút Đổi (phím D) và sao ở hud.js; bộ đếm lượt đổi nằm trên nhãn nút Đổi. Kèm sửa chọn nhầm lá: Sprite.hit không còn phóng to theo hover. Ghi chú bước 2: HUD.layout nhánh `short` (h < CFG.LAYOUT.shortBelow=500): cột trái 22%, cột nút dọc bên phải (Đánh to nhất), bài tay scale x2. headless.js seed 1 cần CAP=580000 trên máy chậm (baseline cũng vậy).
+Next: Bước 5 (D5 Khí thế, màn thắng, âm thanh nhiều lớp, bảng màu đặc biệt). Ghi chú bước 4: CFG.QN4 / CFG.BAU (content.js), 13 thẻ mới trong D.QUY_NHAN (Báu vật rarity 'bau', D.BAU_IDS; không vào QN_IDS/pack, roll dùng rng riêng); hook ở scoring.js (ctx.last cho Cậu Út), rules.js (mods.passMax, state.passes), run.js (payout: Bà ngoại/Thần Tài/Táo Quân); art3.js (A.aura vẽ viền lửa tím, dùng ở shop.js và hud.js); cue 'hum'; tests/bau.test.js, art3.check.js. index.html ?v=10. Ghi chú bước 3: Run.doiBai + run.doi, AI.strength (CFG.SUC_BAI), bước Bài xấu trong scorePlay (run.van.xau), nút Đổi (phím D) và sao ở hud.js; bộ đếm lượt đổi nằm trên nhãn nút Đổi. Kèm sửa chọn nhầm lá: Sprite.hit không còn phóng to theo hover. Ghi chú bước 2: HUD.layout nhánh `short` (h < CFG.LAYOUT.shortBelow=500): cột trái 22%, cột nút dọc bên phải (Đánh to nhất), bài tay scale x2. headless.js seed 1 cần CAP=580000 trên máy chậm (baseline cũng vậy).
 
 ## Session protocol
 - Start: read PLAN.md, the DESIGN.md sections for the first unticked step, SPEC.md Glossary, and only the API headers (top comments) of files you need; grep instead of reading whole files.

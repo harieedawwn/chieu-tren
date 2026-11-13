@@ -123,7 +123,7 @@
     function act(id) { if (id === 'back') { snd('button'); G().setScreen('title'); } else if (id.indexOf('tab') === 0) setTab(+id.slice(3)); }
     function update(dt) { if (lay()) { mkSprites(); } sprites.forEach(s => s.update(dt)); buildBtns(); }
     function chip(ctx, rarity, x, y) {
-      const c = rarity === 'quy' ? { fill: PAL.vangKim, ink: PAL.denSon } : rarity === 'hiem' ? { fill: PAL.menLam, ink: PAL.giayDo } : { fill: PAL.denSon, ink: PAL.giayDo };
+      const c = rarity === 'bau' ? { fill: TL.CFG.BAU.AURA[0], ink: PAL.giayDo } : rarity === 'quy' ? { fill: PAL.vangKim, ink: PAL.denSon } : rarity === 'hiem' ? { fill: PAL.menLam, ink: PAL.giayDo } : { fill: PAL.denSon, ink: PAL.giayDo };
       A.badge(ctx, T.rarity[rarity], x, y, { size: Math.max(11, L.u - 2), fill: c.fill, ink: c.ink, anchor: 'center' });
     }
     function draw(ctx) {

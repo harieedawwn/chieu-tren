@@ -108,4 +108,57 @@
   D.BOSS_IDS = ['ba_noi', 'chu_ba', 'ong_sau', 'co_hai', 'bac_chin', 'di_ut'];
   D.BOSS_IDS.forEach(function (id) { const h = D.HOUSE_RULES[id]; h.kind = 'luat'; h.rarity = 'thuong'; h.desc = h.quote; });
   D.RARITY_ORDER = ['thuong', 'hiem', 'quy'];
+
+  // ---- step 4: 8 more Quý nhân + 5 Báu vật (rarity 'bau', aura, shop from chặng 2)
+  CFG.QN4 = {
+    THAY_TUONG_X: 2,       // Ông thầy tướng: Bài xấu Nhân multiplier (instead of XAU_X)
+    SAI_GON_X: 2,          // Cô Ba Sài Gòn: sảnh of SAI_GON_MIN+ cards
+    SAI_GON_MIN: 5,
+    BAN_PHO_THE: 2,        // Chú bán phở: +Nhân per consecutive hũ won (stacks)
+    BO_DOI_LIXI: 3,        // Anh bộ đội: lì xì when your heo is chặt
+    BO_DOI_THE: 5,         //   and +Nhân on your next play
+    BA_NGOAI_LIXI: 2,      // Bà ngoại: lì xì per unused Lượt đổi at payout
+    CAU_UT_X: 3,           // Cậu Út: Nhân multiplier when a rác ends the ván
+    CHI_HANG_DIEM: 20,     // Chị hàng cá: +Điểm for beating the table by exactly one rank
+    ONG_GIAO_X: 2,         // Ông giáo: extra multiplier on the cóng bonus
+  };
+  CFG.BAU = {
+    CHANCE: 0.05,          // chance per Quý nhân shop slot (from chặng 2) to be a Báu vật; at most one per shop
+    MIN_CHANG: 1,          // chặng index (0-based) from which Báu vật appear
+    MAX_OWNED: 2,
+    THAN_TAI_PER: 4,       // Thần Tài: pay 1 lì xì per this many held, uncapped
+    THAN_TAI_REROLL_X: 2,  //   Đổi hàng costs this many times more
+    ONG_DIA_THE: 4,        // Ông Địa: +Nhân forever per heo the loser still holds when you win
+    TAO_QUAN_LEVELS: 1,    // Táo Quân: levels for every kind of bài per bàn trùm cleared
+    VUA_BAI_X: 2,          // Vua Bài: Nhân multiplier on every play
+    VUA_BAI_PASSES: 2,     //   max Bỏ lượt per ván
+    AURA: ['#6B2F7A', '#A066B0'],   // aura fire colours (the only purple in the game)
+    CA_CHEP_X: 1.2,        // Cá Chép: Nhân multiplier gained per hũ won with a sảnh, compounding forever
+  };
+  CFG.PRICE.QN4 = { ong_thay_tuong: 6, co_ba_sai_gon: 7, chu_ban_pho: 6, anh_bo_doi: 5, ba_ngoai: 5, cau_ut: 7, chi_hang_ca: 4, ong_giao: 6 };
+  CFG.PRICE.BAU = { than_tai: 14, ong_dia: 12, tao_quan: 13, vua_bai: 15, ca_chep: 12 };
+  Object.assign(CFG.PRICE.QN, CFG.PRICE.QN4, CFG.PRICE.BAU);
+  const Q4 = CFG.QN4, BA = CFG.BAU;
+  [
+    ['ong_thay_tuong', 'Ông thầy tướng', 'hiem', 'Bài xấu: nhân ×' + Q4.THAY_TUONG_X + ' Nhân thay vì ×' + P(CFG.XAU_X) + '.'],
+    ['co_ba_sai_gon', 'Cô Ba Sài Gòn', 'hiem', 'Sảnh từ ' + Q4.SAI_GON_MIN + ' lá trở lên: nhân ×' + Q4.SAI_GON_X + ' Nhân.'],
+    ['chu_ban_pho', 'Chú bán phở', 'hiem', 'Mỗi hũ ăn liên tiếp: +' + Q4.BAN_PHO_THE + ' Nhân, cộng dồn. Mất hũ thì về 0.'],
+    ['anh_bo_doi', 'Anh bộ đội', 'thuong', 'Heo bạn bị chặt: +' + Q4.BO_DOI_LIXI + ' lì xì và +' + Q4.BO_DOI_THE + ' Nhân ở nước đánh kế.'],
+    ['ba_ngoai', 'Bà ngoại', 'thuong', 'Mỗi lượt đổi chưa dùng lúc hết bàn: +' + Q4.BA_NGOAI_LIXI + ' lì xì.'],
+    ['cau_ut', 'Cậu Út', 'quy', 'Kết thúc ván bằng một lá rác: nhân ×' + Q4.CAU_UT_X + ' Nhân nước đó.'],
+    ['chi_hang_ca', 'Chị hàng cá', 'thuong', 'Đè bằng lá đầu cao hơn đúng 1 bậc: +' + Q4.CHI_HANG_DIEM + ' Điểm.'],
+    ['ong_giao', 'Ông giáo', 'hiem', 'Thưởng cóng nhân thêm ×' + Q4.ONG_GIAO_X + '.'],
+    ['than_tai', 'Thần Tài', 'bau', 'Lãi không giới hạn, trả 1 mỗi ' + BA.THAN_TAI_PER + ' lì xì. Đổi hàng tốn gấp đôi.'],
+    ['ong_dia', 'Ông Địa', 'bau', 'Thắng ván: mỗi heo đối thủ còn giữ cho +' + BA.ONG_DIA_THE + ' Nhân vĩnh viễn.'],
+    ['tao_quan', 'Táo Quân', 'bau', 'Mỗi bàn trùm vượt qua: mọi kiểu bài lên ' + BA.TAO_QUAN_LEVELS + ' cấp.'],
+    ['vua_bai', 'Vua Bài', 'bau', 'Mọi nước đánh nhân ×' + BA.VUA_BAI_X + ' Nhân. Mỗi ván chỉ được Bỏ lượt ' + BA.VUA_BAI_PASSES + ' lần.'],
+    ['ca_chep', 'Cá Chép', 'bau', 'Mỗi hũ ăn bằng sảnh: nhân thêm ×' + P(BA.CA_CHEP_X) + ' Nhân vĩnh viễn, cộng dồn.'],
+  ].forEach(function (r) {
+    D.QUY_NHAN[r[0]] = { id: r[0], name: r[1], kind: 'qn', rarity: r[2], price: CFG.PRICE.QN[r[0]], desc: r[3] };
+  });
+  D.BAU_IDS = ['than_tai', 'ong_dia', 'tao_quan', 'vua_bai', 'ca_chep'];
+  D.TEXT.rarity.bau = 'Báu vật';
+  D.TEXT.stamp.bauVat = 'Báu vật!';
+  D.TEXT.payout.baNgoai = 'Bà ngoại ×%d';
+  D.TEXT.msg.passMax = 'Vua Bài: hết lượt Bỏ lượt.';
 })(globalThis.TL = globalThis.TL || {});

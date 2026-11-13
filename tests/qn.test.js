@@ -78,7 +78,7 @@ r = mk('ong_do'); r.flags = { x2Next: true }; eq(gain(r, '5s 5c', 0).x.the, (CFG
 r = mk('ba_mai', 'ong_do'); eq(gain(r, 'Js Jc', 0).x.the, CFG.BASE.doi.the * 2 + CFG.QN.ONG_DO_THE, 'slot order: x before +');
 r = mk('ong_do', 'ba_mai'); eq(gain(r, 'Js Jc', 0).x.the, (CFG.BASE.doi.the + CFG.QN.ONG_DO_THE) * 2, 'slot order: + before x');
 // all 20 Quý nhân have rarity/price/desc
-const D = TL.DATA; eq(Object.keys(D.QUY_NHAN).length, 20, '20 quy nhan'); Object.values(D.QUY_NHAN).forEach(q => ok(['thuong', 'hiem', 'quy'].includes(q.rarity) && q.price > 0 && q.desc && q.name && q.kind === 'qn' && (!q.quote || q.quote.split(' ').length <= 6), 'content ' + q.id));
+const D = TL.DATA; eq(Object.keys(D.QUY_NHAN).length, 33, '28 quy nhan + 5 bau vat'); Object.values(D.QUY_NHAN).forEach(q => ok(['thuong', 'hiem', 'quy', 'bau'].includes(q.rarity) && q.price > 0 && q.desc && q.name && q.kind === 'qn' && (!q.quote || q.quote.split(' ').length <= 6), 'content ' + q.id));
 
 console.log(bad ? bad + ' FAILED of ' + n + ' checks' : 'ok: ' + n + ' checks passed');
 process.exit(bad ? 1 : 0);

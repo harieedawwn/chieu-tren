@@ -181,7 +181,7 @@
     deal: 0.63, flip: 1.22, shuffle: 0.34, select: 3.2, place: 0.4,
     tick: 1.9, mult: 0.29, chat: 1.2, vong: 0.24, venhat: 0.49,
     thua: 0.29, stamp: 0.97, button: 1.19, hover: 0.65, coin: 0.155,
-    buy: 0.15, sell: 0.17, dissolve: 0.46, gong: 0.7
+    hum: 0.5, buy: 0.15, sell: 0.17, dissolve: 0.46, gong: 0.7
   };
   function def(name, meta, fn) { R[name] = { fn: fn, bus: meta.bus, max: meta.max || 4, pv: meta.pv, level: LEVEL[name] }; }
 
@@ -275,6 +275,11 @@
   });
   def('button', { bus: 'ui', max: 4 }, function (a, t) { tap(a, t, 3000, 0.9); thud(a, t, 500, 0.35); return a.end; });
   def('hover', { bus: 'ui', max: 2 }, function (a, t) { tap(a, t, 5200, 0.6, 2); return a.end; });
+  def('hum', { bus: 'ui', max: 1 }, function (a, t) {          // Báu vật hover: low drone
+    a.tone(t, { f0: 70, f1: 74, glide: 0.25, tau: 0.3, gain: 0.5 });
+    a.tone(t, { f0: 105, f1: 110, glide: 0.25, tau: 0.22, gain: 0.2 });
+    return a.end;
+  });
   def('coin', { max: 4 }, function (a, t) {                    // li xi gained: paper rustle, two clinks
     swish(a, t, 1200, 3000, 0.09, 0.3);
     clink(a, t + 0.07, vary(2600, 0.06), 1);
