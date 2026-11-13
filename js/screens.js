@@ -73,9 +73,9 @@
       const right = wide ? { x: X0 + (X1 - X0) * 0.46, y: Y0, w: (X1 - X0) * 0.54, h: Y1 - Y0 } : { x: X0, y: zone.y + zone.h, w: X1 - X0, h: Y1 - zone.y - zone.h };
       const bw = Math.min(300, right.w - 8), bh = clamp(Math.round(right.h * 0.13), 50, 60), gap = 10, bTot = n * bh + (n - 1) * gap;
       let ts = fit(TITLE, Math.min(wide ? 104 : 84, Math.round(right.h * 0.2)), right.w * 0.96, 24);
-      const subS = clamp(Math.round(ts * 0.3), 14, 24), blockH = Math.round(ts * 1.25) + subS + 14 + 22 + bTot;
+      const subS = clamp(Math.round(ts * 0.3), 14, 24), lg = clamp(Math.round(ts * 1.1), 56, 96), blockH = lg + 8 + Math.round(ts * 1.25) + subS + 14 + 22 + bTot;
       const y0 = right.y + Math.max(0, (right.h - blockH) / 2), cx = right.x + right.w / 2;
-      L = { ts: ts, subS: subS, cx: cx, titleY: y0, subY: y0 + Math.round(ts * 1.25) + 4 };
+      L = { ts: ts, subS: subS, cx: cx, lg: lg, logoY: y0, titleY: y0 + lg + 8, subY: y0 + lg + 8 + Math.round(ts * 1.25) + 4 };
       const by = L.subY + subS + 14 + 22;
       const ids = save ? ['new', 'cont', 'set'] : ['new', 'set'], labels = { new: T.title.play, cont: T.title.cont, set: T.title.settings };
       btns.list = ids.map((id, i) => ({ id: id, label: labels[id], r: { x: Math.round(cx - bw / 2), y: Math.round(by + i * (bh + gap)), w: Math.round(bw), h: bh } }));
@@ -105,6 +105,17 @@
     function draw(ctx) {
       lay();
       SP.drawAll(ctx, cards);
+      if (A.logoAt) {   // logo stamps in (1.5x -> 1x, 0.28 s) with a short ink splash
+        const k = FX.reducedMotion ? 1 : Math.min(1, tt / 0.28), e = 1 - Math.pow(1 - k, 3), sz = L.lg * (1.5 - 0.5 * e), lx = L.cx, ly = L.logoY + L.lg / 2;
+        ctx.save(); ctx.globalAlpha = Math.min(1, k * 3); ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(A.logoAt(Math.round(L.lg * G().dpr)), Math.round(lx - sz / 2), Math.round(ly - sz / 2), Math.round(sz), Math.round(sz)); ctx.restore();
+        const sp = (tt - 0.28) / 0.35;
+        if (!FX.reducedMotion && sp > 0 && sp < 1) {
+          ctx.save(); ctx.globalAlpha = 1 - sp; ctx.fillStyle = PAL.denSon;
+          for (let i = 0; i < 10; i++) { const a = i * 0.628 + 0.3, r = L.lg * (0.55 + 0.35 * sp) * (i % 2 ? 1 : 1.12), d = Math.max(2, Math.round(L.lg * 0.05 * (1 - sp) * (1 + i % 3))); ctx.fillRect(Math.round(lx + Math.cos(a) * r), Math.round(ly + Math.sin(a) * r), d, d); }
+          ctx.restore();
+        }
+      }
       const chars = Array.from(TITLE), full = A.textWidth(TITLE, L.ts), x0 = L.cx - full / 2, red = FX.reducedMotion;
       chars.forEach((c, i) => {
         if (c === ' ') return;
