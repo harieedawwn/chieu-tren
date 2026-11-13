@@ -1,11 +1,21 @@
-# PLAN (đọc đầu mỗi phiên, làm từ ô chưa tick đầu tiên)
-- [x] 1 Chữ + dữ liệu: bảng thuật ngữ, js/content.js (12 Quý nhân, 6 Quẻ, Bao lì xì, 3 luật nhà, TEXT), stub art2/shop/collection
-- [x] 2 Luật + điểm: sameSuitStraight, noHeoFinish, Rules.swap/reveal, Quý nhân mới, tests rules2 + qn
-- [x] 3 Tranh: js/art2.js + demo/art2.html (12 Quý nhân, 3 boss, 6 Quẻ, Bao lì xì)
-- [x] 4 Run: Quẻ, useQue, shop 6 món, packs, 6 boss ngẫu nhiên, endless, run.seen, tests/que.test.js
-- [x] 5 Màn Chợ Tết: js/shop.js (thẻ, rarity, mở bao)
-- [x] 6 Bàn chơi + Sổ tay + vô tận: scene.js, collection.js, nút title/end, Playwright 4 cỡ
-- [x] 7 Cân bằng sim, README, deploy, kiểm tra trang live
+# PLAN — vòng nâng cấp (đọc đầu mỗi phiên; làm từ ô chưa tick đầu tiên; thiết kế ở DESIGN.md)
+- [ ] 1 Fixes: heo-chặt fuzz test, boss rule card, fullscreen + PWA (D1)
+- [ ] 2 Landscape-phone layout and size hierarchy (D2)
+- [ ] 3 Bad hands: Lượt đổi and Sức bài (D3)
+- [ ] 4 Content: 8 Quý nhân, 5 Báu vật with aura, js/art3.js (D4)
+- [ ] 5 Feel: Khí thế, winning finale, louder layered sounds, special palettes (D5)
+- [ ] 6 Meta logic: profile, Tiếng tăm, Cây mai, Khởi đầu, Chiếu, daily seed; tests (D6)
+- [ ] 7 Screens: mode select, pickers, Cây mai screen, XP on end screen, transitions (D7)
+- [ ] 8 4-player engine, AI and run integration; tests (D8)
+- [ ] 9 4-player table UI, Sòng Giao thừa, Sòng bốn mode (D9)
+- [ ] 10 Balance sim, full checks, README, live check (D10)
 
-Quy ước: đẩy bằng `git push origin HEAD:main` (nhánh làm việc claude/gracious-heisenberg-uqoxhj cũng được đẩy).
-Next: xong tất cả. Còn lại: không có việc bắt buộc.
+Next: Bước 1.
+
+## Session protocol
+- Start: read PLAN.md, the DESIGN.md sections for the first unticked step, SPEC.md Glossary, and only the API headers (top comments) of files you need; grep instead of reading whole files.
+- Do exactly one step. Pick choices yourself; no questions to the user.
+- Checks before commit: all tests in tests/ pass; headless index.html?auto&seed=1 reaches the end with zero console errors; Playwright screenshots of what you changed at 844×390, 390×844 and 1280×720, looked at and fixed (max 3 rounds).
+- If the step grows past about 500 changed lines, commit and push the passing part, note it under the step in PLAN.md, and continue in a second commit.
+- Finish: tick the box, update "Next:", commit with a clear message, git push origin main (never force-push), then reply with a 5-line Vietnamese report ending in "Xong bước n. Gõ /clear rồi dán prompt tiếp tục."
+- Branch note: work on claude/epic-ride-nzubqn and also push it to main with `git push origin HEAD:main`.
