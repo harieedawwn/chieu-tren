@@ -3,6 +3,7 @@
  *   TL.Run.create(seed) -> run            new run at chặng 1 bàn 1, phase 'ban'
  *   TL.Run.ban(run) -> BanInfo            current bàn (target, opp, luật nhà, mods, ván left)
  *   TL.Run.startVan(run, opts?) -> VanState      Rules.newVan with house mods + scoreFn bound to run; sets peek (Thầy bói)
+ *   TL.Run.doiBai(run, van, selectedIds) -> {ok, events, msg}   Luot doi (run.doi per bàn, CFG.DOI_PER_BAN): swap 1-3 cards when leading; re-reads run.van.suc (Suc bai stars) and run.van.xau (Bai xau = 1 star)
  *   TL.Run.record(run, events)            stats, Điểm bàn += pot on vòng won by seat 0, opponent take, lastWinner
  *   TL.Run.endVan(run, vanEndEvent) -> 'next'|'cleared'|'lost'   vanUsed++, vanNo++, applies vanBonus, floors Điểm bàn at 0
  *   TL.Run.payout(run) -> {lines:[{label, amount}], total}   applies once (repeat call returns the same lines)
@@ -34,7 +35,7 @@
     const sao = {}; TYPES.forEach(t => { sao[t] = 1; });
     const run = {
       v: CFG.SAVE_VERSION, seed: seed, vanNo: 0, phase: 'ban', chang: 0, ban: 0, money: CFG.START_MONEY,
-      qn: Array.from({ length: CFG.SHOP.QN_SLOTS }, () => null), sao: sao, diemBan: 0, vanUsed: 0, lastWinner: null,
+      qn: Array.from({ length: CFG.SHOP.QN_SLOTS }, () => null), sao: sao, diemBan: 0, vanUsed: 0, lastWinner: null, doi: CFG.DOI_PER_BAN,
       van: { stack: 0, oppTake: 0 }, flags: { x2Next: false }, que: Array.from({ length: CFG.SHOP.QUE_SLOTS }, () => null), seen: [], bosses: [], rn: 0, endless: false, vanExtra: 0, pack: null, shop: { items: [], rerolls: 0, n: 0 }, paid: false, lastPayout: null,
       stats: { vans: 0, wins: 0, chat: 0, bestPlay: 0, bestPot: 0, toiTrang: 0, earned: 0 },
     };
@@ -62,12 +63,28 @@
     if (b.house) see(run, b.house);
     run.qn.forEach(q => q && see(run, q.id));
     run.van = { stack: 0, oppTake: 0 };
+    if (typeof run.doi !== 'number') run.doi = CFG.DOI_PER_BAN;
     const st = TL.Rules.newVan({
       rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
     });
+    run.van.suc = TL.AI.strength(st.hands[0]); run.van.xau = run.van.suc === 1;
     st.peek = S.slotOf(run, 'thay_boi') >= 0 ? st.hands[1].slice(-CFG.QN.THAY_BOI_REVEAL) : [];
     return st;
+  }
+
+  // Luot doi: swap 1-3 own cards while leading a new hu; costs one of run.doi, then Suc bai / Bai xau is re-read from the new hand
+  function doiBai(run, van, sel) {
+    const M = T.msg, fail = msg => ({ ok: false, events: [], msg: msg });
+    if (!van || van.over) return fail(M.queVan);
+    if (van.turn !== 0) return fail(M.queTurn);
+    if (van.table) return fail(M.doiLead);
+    if (!(run.doi > 0)) return fail(M.doiHet);
+    if (!Array.isArray(sel) || !sel.length || sel.length > CFG.QUE.DOI_MAX) return fail(M.doiSel);
+    const events = TL.Rules.swap(van, 0, sel, TL.makeRng((run.seed ^ 0x3C6EF372) + Math.imul(++run.rn, 40503) + van.log.length));
+    if (!events.length) return fail(M.queSel);
+    run.doi--; run.van.suc = TL.AI.strength(van.hands[0]); run.van.xau = run.van.suc === 1;
+    return { ok: true, events: events, msg: '' };
   }
 
   function record(run, events) {
@@ -99,6 +116,7 @@
     const b = ban(run), lines = [], unused = b.vanLeft, interest = Math.min(CFG.INTEREST_MAX, Math.floor(run.money / CFG.INTEREST_PER));
     lines.push({ label: T.kind[b.kind], amount: CFG.PAYOUT[b.kind] });
     if (unused > 0 && CFG.UNUSED_VAN_PTS > 0) lines.push({ label: T.payout.unused.replace('%d', unused), amount: CFG.UNUSED_VAN_PTS * unused });
+    if (run.doi > 0 && CFG.DOI_UNUSED_LIXI > 0) lines.push({ label: T.payout.khongDoi.replace('%d', run.doi), amount: CFG.DOI_UNUSED_LIXI * run.doi });
     if (interest > 0) lines.push({ label: T.payout.interest, amount: interest });
     const total = lines.reduce((a, l) => a + l.amount, 0);
     run.money += total; run.stats.earned = (run.stats.earned || 0) + total; run.paid = true; run.lastPayout = { lines: lines, total: total };
@@ -228,7 +246,7 @@
   function continueEndless(run) {
     if (run.phase !== 'won') return false;
     run.endless = true; run.chang++; run.ban = 0; drawBoss(run, run.chang);
-    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
+    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.doi = CFG.DOI_PER_BAN; run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
     run.shop = { items: [], rerolls: 0, n: 0 }; run.paid = false; run.lastPayout = null; run.phase = 'ban';
     return 'ok';
   }
@@ -236,7 +254,7 @@
   function nextBan(run) {
     if (isLast(run)) { run.phase = 'won'; return 'won'; }
     if (run.ban === 2) { run.chang++; run.ban = 0; } else run.ban++;
-    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
+    run.diemBan = 0; run.vanUsed = 0; run.vanExtra = 0; run.doi = CFG.DOI_PER_BAN; run.lastWinner = null; run.van = { stack: 0, oppTake: 0 };
     run.shop = { items: [], rerolls: 0, n: 0 }; run.paid = false; run.lastPayout = null; run.phase = 'ban';
     return 'ok';
   }
@@ -259,5 +277,5 @@
     } catch (e) { return null; }
   }
 
-  TL.Run = { create: create, ban: ban, startVan: startVan, record: record, endVan: endVan, payout: payout, shop: shop, buy: buy, sell: sell, sellQue: sellQue, openPack: openPack, choosePack: choosePack, useQue: useQue, continueEndless: continueEndless, reroll: reroll, nextBan: nextBan, save: save, load: load };
+  TL.Run = { create: create, ban: ban, startVan: startVan, doiBai: doiBai, record: record, endVan: endVan, payout: payout, shop: shop, buy: buy, sell: sell, sellQue: sellQue, openPack: openPack, choosePack: choosePack, useQue: useQue, continueEndless: continueEndless, reroll: reroll, nextBan: nextBan, save: save, load: load };
 })(globalThis.TL = globalThis.TL || {});

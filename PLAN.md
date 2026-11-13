@@ -1,7 +1,7 @@
 # PLAN — vòng nâng cấp (đọc đầu mỗi phiên; làm từ ô chưa tick đầu tiên; thiết kế ở DESIGN.md)
 - [x] 1 Fixes: heo-chặt fuzz test, boss rule card, fullscreen + PWA (D1)
 - [x] 2 Landscape-phone layout and size hierarchy (D2)
-- [ ] 3 Bad hands: Lượt đổi and Sức bài (D3)
+- [x] 3 Bad hands: Lượt đổi and Sức bài (D3)
 - [ ] 4 Content: 8 Quý nhân, 5 Báu vật with aura, js/art3.js (D4)
 - [ ] 5 Feel: Khí thế, winning finale, louder layered sounds, special palettes (D5)
 - [ ] 6 Meta logic: profile, Tiếng tăm, Cây mai, Khởi đầu, Chiếu, daily seed; tests (D6)
@@ -10,7 +10,7 @@
 - [ ] 9 4-player table UI, Sòng Giao thừa, Sòng bốn mode (D9)
 - [ ] 10 Balance sim, full checks, README, live check (D10)
 
-Next: Bước 3 (D3 Lượt đổi và Sức bài). Ghi chú bước 2: HUD.layout nhánh `short` (h < CFG.LAYOUT.shortBelow=500): cột trái 22%, cột nút dọc bên phải (Đánh to nhất), bài tay scale x2. headless.js seed 1 cần CAP=580000 trên máy chậm (baseline cũng vậy).
+Next: Bước 4 (D4 Quý nhân, Báu vật, js/art3.js). Ghi chú bước 3: Run.doiBai + run.doi, AI.strength (CFG.SUC_BAI), bước Bài xấu trong scorePlay (run.van.xau), nút Đổi (phím D) và sao ở hud.js; bộ đếm lượt đổi nằm trên nhãn nút Đổi. Kèm sửa chọn nhầm lá: Sprite.hit không còn phóng to theo hover. Ghi chú bước 2: HUD.layout nhánh `short` (h < CFG.LAYOUT.shortBelow=500): cột trái 22%, cột nút dọc bên phải (Đánh to nhất), bài tay scale x2. headless.js seed 1 cần CAP=580000 trên máy chậm (baseline cũng vậy).
 
 ## Session protocol
 - Start: read PLAN.md, the DESIGN.md sections for the first unticked step, SPEC.md Glossary, and only the API headers (top comments) of files you need; grep instead of reading whole files.

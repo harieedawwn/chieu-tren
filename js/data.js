@@ -87,7 +87,7 @@
     game: { title: 'Chiếu Trên', sub: 'Tiến Lên ngày Tết.', win: 'Mùng Một' },
     title: { play: 'Chơi mới', cont: 'Chơi tiếp', settings: 'Cài đặt', sotay: 'Sổ tay' },
     btn: {
-      danh: 'Đánh', bo: 'Bỏ lượt', goiy: 'Gợi ý', xep: 'Xếp', menu: 'Menu',
+      danh: 'Đánh', bo: 'Bỏ lượt', goiy: 'Gợi ý', xep: 'Xếp', doi: 'Đổi', menu: 'Menu',
       xepRank: 'Xếp: số', xepSuit: 'Xếp: chất', ok: 'Được', back: 'Quay lại', dung: 'Dùng', chon: 'Chọn',
     },
     hud: {
@@ -99,12 +99,12 @@
     },
     kind: { nho: 'Bàn nhỏ', lon: 'Bàn lớn', trum: 'Bàn trùm' },
     stamp: {
-      chat: 'Chặt!', anVong: 'Ăn hũ.', thoiHeo: 'Thối heo.', thoiHeoN: 'Thối %d heo.',
+      chat: 'Chặt!', baiXau: 'Bài xấu', anVong: 'Ăn hũ.', thoiHeo: 'Thối heo.', thoiHeoN: 'Thối %d heo.',
       cong: 'Cóng.', veNhat: 'Về nhất.', toiTrang: 'Tới trắng.', boLuot: 'Bỏ lượt.',
       thua: 'Thua ván.', quaBan: 'Qua bàn.', heoVo: 'Heo đất vỡ.', thayBoi: 'Lật bài.',
     },
     payout: {
-      title: 'Qua bàn', base: '%s', unused: 'Ván còn dư ×%d', interest: 'Lãi', total: 'Tổng', next: 'Vào Chợ Tết',
+      title: 'Qua bàn', base: '%s', unused: 'Ván còn dư ×%d', khongDoi: 'Không đổi bài ×%d', interest: 'Lãi', total: 'Tổng', next: 'Vào Chợ Tết',
     },
     shop: {
       title: 'Chợ Tết', buy: 'Mua', sell: 'Bán', reroll: 'Đổi hàng', next: 'Đi tiếp',
@@ -145,7 +145,7 @@
       noChat: 'Không được chặt heo.', mustBeat: 'Có đè là phải đè.', pickCards: 'Chọn bài.',
       sameSuit: 'Sảnh phải đồng chất.', noHeoFinish: 'Không được về bằng heo.',
       saveFail: 'Không lưu được.', loadFail: 'Không đọc được bản lưu.',
-      queTurn: 'Chờ tới lượt bạn.', queSel: 'Chọn từ 1 đến 3 lá để đổi.', queNoCard: 'Không còn lá để đổi.',
+      queTurn: 'Chờ tới lượt bạn.', doiLead: 'Chỉ đổi bài khi bạn dẫn hũ mới.', doiHet: 'Hết lượt đổi ở bàn này.', doiSel: 'Chọn 1 đến 3 lá để đổi.', queSel: 'Chọn từ 1 đến 3 lá để đổi.', queNoCard: 'Không còn lá để đổi.',
       queSoi: 'Đang thấy bài đối thủ rồi.', queX2: 'Đã gấp đôi rồi.', queFull: 'Hết chỗ Quẻ.', queVan: 'Chỉ dùng lúc đang chơi.',
       queBusy: 'Chờ một chút.',
     },

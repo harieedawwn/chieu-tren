@@ -158,7 +158,8 @@
       const V = this.V, sz = this.size(), a = -V.rot * RAD;
       const dx = x - V.x, dy = y - (V.y - this._lf.x * M.lift);
       const rx = dx * Math.cos(a) - dy * Math.sin(a), ry = dx * Math.sin(a) + dy * Math.cos(a);
-      return Math.abs(rx) <= sz.w * V.sx * this._hs.x / 2 && Math.abs(ry) <= sz.h * V.sy * this._hs.x / 2;
+      // hit area ignores the hover scale-up, so an enlarged hovered card never steals clicks from its neighbours
+      return Math.abs(rx) <= sz.w * V.sx / 2 && Math.abs(ry) <= sz.h * V.sy / 2;
     },
     juice(a) { FX.juice(this, a == null ? 1 : a); },
     flip(tex, delay) {
@@ -216,7 +217,6 @@
     });
   }
   function pick(list, x, y) {
-    for (const s of list) if (s.hover && s.hit(x, y)) return s;
     for (let i = list.length - 1; i >= 0; i--) if (list[i].hit(x, y)) return list[i];
     return null;
   }

@@ -63,6 +63,10 @@
         diem += d; the += t;
         steps.push({ kind: 'qn', ref: s.id, slot: slot, diem: d || undefined, the: t || undefined, label: d ? '+' + d + ' ' + T.hud.diem : '+' + t + ' ' + T.hud.the });
       });
+      if (run.van.xau) {
+        the *= CFG.XAU_X;
+        steps.push({ kind: 'bonus', ref: 'xau', xThe: CFG.XAU_X, label: T.stamp.baiXau + ' ×' + num(CFG.XAU_X) });
+      }
       if (run.flags && run.flags.x2Next) {
         the *= QE.GAP_DOI_X;
         steps.push({ kind: 'bonus', ref: 'x2', xThe: QE.GAP_DOI_X, label: '×' + QE.GAP_DOI_X + ' ' + T.hud.the });

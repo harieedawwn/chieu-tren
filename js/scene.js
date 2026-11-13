@@ -48,6 +48,7 @@
     vm.oppHeo = S.slotOf(run, 'co_hang_xom') >= 0 ? opp.filter(s => C.isHeo(s.id)).length : null;
     vm.oppReveal = st ? (st.peek || []).filter(id => opp.some(s => s.id === id)) : [];
     vm.busy = !!FX.queue.busy() || !ready || !!pay || !st || st.over; vm.canPlay = selOk && canAct(); vm.canPass = !!(leg && leg.canPass) && canAct();
+    vm.doiLeft = run.doi || 0; vm.canDoi = !!st && !st.over && !st.table && vm.turn === 0 && run.doi > 0 && selIds().length >= 1 && selIds().length <= CFG.QUE.DOI_MAX && canAct(); vm.suc = st ? run.van.suc : 0;
     vm.x2 = !!run.flags.x2Next; vm.msg = tmsg || selMsg; vm.hoverBtn = hovBtn; vm.downBtn = downBtn;
   }
   function clearScore() { cv.diem = cv.the = 0; vm.combo = null; }
@@ -139,6 +140,10 @@
     } else if (id === 'bo') {
       if (!leg.canPass) { if (!st.table) return; if (st.mods.mustBeat && info.rule) { FX.juice(J.house, 1.2); say(ruleSay(T.msg.mustBeat)); } else say(T.msg.mustBeat); return; }
       ready = false; hand.forEach(s => { s.selected = false; }); process(RU.pass(st, 0));
+    } else if (id === 'doi') {
+      const res = TL.Run.doiBai(run, st, selIds());
+      if (!res.ok) { say(res.msg); snd('button'); return; }
+      snd('stamp', { vol: 0.8 }); doSwap(res.events[0]); if (run.van.xau) FX.juice(J.the, 1.1); saveRun();
     } else if (id === 'goiy') hint();
     else if (id === 'xep') xep();
     else if (id === 'menu') Game().setScreen('settings');
@@ -349,7 +354,7 @@
     if (rcard) { if (rcard.t >= 1.2) closeRule(); return; }
     if (pay) { if (pay.done && (e.key === 'enter' || e.key === 'space')) leave(); return; }
     if (e.key === 'esc') return Game().setScreen('settings');
-    const m = { enter: 'danh', space: 'bo', h: 'goiy', s: 'xep' }[e.key]; if (m) act(m);
+    const m = { enter: 'danh', space: 'bo', h: 'goiy', s: 'xep', d: 'doi' }[e.key]; if (m) act(m);
   }
 
   // ------------------------------------------------------------ draw

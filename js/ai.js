@@ -4,6 +4,7 @@
  *     cardIds always come from view.legal; pass only when view.canPass. Params: CFG.AI[level].
  *     rng is optional: default is a deterministic rng seeded from the view (same view -> same move).
  *     mods.noHeoFinish: dumps its heo while other cards remain (never holds them), so it is not stuck with a lone heo
+ *   TL.AI.strength(hand) -> 1|2|3  Suc bai stars (CFG.SUC_BAI); 1 = Bai xau
  *   TL.AI.plan(hand) -> Combo[]  groups (sanh, đôi thông, tứ quý, sám, đôi, rác) with the fewest groups / least rác
  */
 (function (TL) {
@@ -82,5 +83,10 @@
     return mv(pick);
   }
 
-  TL.AI = { choose: choose, plan: plan };
+  function strength(hand) {                   // Suc bai: 1-3 stars from the planner (fewer groups, more control = better)
+    const g = plan(hand), W = CFG.SUC_BAI, ctl = g.filter(bomb).length + hand.filter(C.isHeo).length, sc = g.length - W.CTL_W * ctl;
+    return sc <= W.STAR3 ? 3 : sc >= W.STAR1 ? 1 : 2;
+  }
+
+  TL.AI = { choose: choose, plan: plan, strength: strength };
 })(globalThis.TL = globalThis.TL || {});

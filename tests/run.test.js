@@ -138,7 +138,7 @@ r = Run.create(1); r.diemBan = 20; Run.endVan(r, VE({ winner: 1, heo: [3, 0] }))
 r = Run.create(1); eq(Run.endVan(r, VE({ winner: 0, left: [0, 0] })), 'next', 'no bonus on 0 left');
 
 // ---- payout and interest
-const payoutCase = (money, kind, vanUsed) => { const run = Run.create(1); run.money = money; run.chang = 0; run.ban = ['nho', 'lon', 'trum'].indexOf(kind); run.vanUsed = vanUsed; run.phase = 'payout'; return [run, Run.payout(run)]; };
+const payoutCase = (money, kind, vanUsed) => { const run = Run.create(1); run.money = money; run.chang = 0; run.ban = ['nho', 'lon', 'trum'].indexOf(kind); run.vanUsed = vanUsed; run.doi = 0; run.phase = 'payout'; return [run, Run.payout(run)]; };
 let p; [r, p] = payoutCase(4, 'nho', 1);
 eq(p.lines.map(l => l.amount), [CFG.PAYOUT.nho, CFG.UNUSED_VAN_PTS * 2], 'payout lines (no interest under INTEREST_PER)'); eq(p.total, CFG.PAYOUT.nho + 2 * CFG.UNUSED_VAN_PTS, 'payout total'); eq(r.money, 4 + p.total, 'money after payout');
 eq(p.lines[0].label, D.TEXT.kind.nho, 'base label TEXT.kind'); eq(p.lines[1].label, D.TEXT.payout.unused.replace('%d', 2), 'unused label'); eq([r.phase, r.paid], ['shop', true], 'phase shop after payout');

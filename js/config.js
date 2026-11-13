@@ -50,6 +50,10 @@
     VAN_PER_BAN: 3,       // max van per ban
     START_MONEY: 6,       // li xi at run start
     PAYOUT: { nho: 5, lon: 6, trum: 8 },   // li xi for clearing a ban, by kind
+    DOI_PER_BAN: 2,       // Luot doi per ban (swap 1-3 cards when leading a hu)
+    DOI_UNUSED_LIXI: 1,   // li xi per unused Luot doi at payout
+    XAU_X: 1.5,           // Nhan x for every play of a ván that started 'Bai xau' (1 star)
+    SUC_BAI: { CTL_W: 0.5, STAR3: 4.5, STAR1: 7 },   // Suc bai: groups - CTL_W*control; <= STAR3 -> 3 stars, >= STAR1 -> 1 star
     UNUSED_VAN_PTS: 1,    // li xi per unused van at clear
     INTEREST_PER: 5,      // "bo ong": 1 li xi per this many held (counted before payout)
     INTEREST_MAX: 5,      // cap on interest

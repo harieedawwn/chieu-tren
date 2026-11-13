@@ -2,14 +2,14 @@
  * API  TL.HUD   (all units CSS px; Rect = {x,y,w,h})
  *   layout(w, h, safe?) -> rects   safe = {t,r,b,l} insets. rects = {mode:'landscape'|'portrait', panel (landscape) | topBar (portrait),
  *        qnRow, qnSlot[5] (3:4, art 48x64), oppSeat, oppPlate, oppHand, deck, deckCol, table, tablePlay (free area for played cards), pot, ribbon, comboBox, diemBox, theBox, dbBox (Điểm bàn box / top bar),
- *        info{head,score,stats,...} (landscape), hand, btn{danh,bo,goiy,xep,menu}, cardH (hand card height), tableCardH, oppCardH, qnH}
+ *        info{head,score,stats,...} (landscape), hand, btn{danh,bo,goiy,xep,doi,menu}, cardH (hand card height), tableCardH, oppCardH, qnH}
  *   scaleFor(cssH, dpr) -> int     largest integer art scale whose 64-px card fits cssH; Game.scale = scaleFor(rects.cardH, dpr)
  *   draw(ctx, vm, rects)           chrome + recessed sprite slots. Call BEFORE sprites (nothing opaque lies on a sprite area)
  *   drawOver(ctx, vm, rects)       small labels on top of sprites (Quy nhan names, Heo dat counter). Call AFTER sprites
- *   hit(rects, x, y, all?) -> 'danh'|'bo'|'goiy'|'xep'|'menu'|null   disabled buttons are ignored unless all is true (uses the states of the last draw)
+ *   hit(rects, x, y, all?) -> 'danh'|'bo'|'goiy'|'xep'|'doi'|'menu'|null   disabled buttons are ignored unless all is true (uses the states of the last draw)
  *   isEnabled(rects, id) -> bool
  *   demoScreen() -> Screen         the ?hud screen: fake mid-game vm, real card textures placed with Sprite.fan, clickable cards and buttons
- * vm extras read when present: hoverBtn, downBtn (button id -> hover/pressed look), house.short, deckLeft, live (false = before the deal: no turn ribbon, no card count),
+ * vm extras read when present: hoverBtn, downBtn (button id -> hover/pressed look), house.short, deckLeft, doiLeft + canDoi (Doi button), suc (Suc bai stars 1-3), live (false = before the deal: no turn ribbon, no card count),
  *   x2 (bool: Gấp đôi pending, draws a ×2 badge on the Nhân box), vanNo (current ván, 1-based; shown "Ván n/max"), j{diem,the,pot,diemBan,van,house} (FX.juice holders: the number swells), hl (tutorial spotlight, read by the tutorial only).
  * Text: every string goes through TL.Art.textC / TL.Art.badge (measured, centred from the ink box); Quy nhan name bars are labelled in drawOver only when the name fits at 9 px or more.
  */
@@ -18,7 +18,7 @@
   const CFG = TL.CFG, DATA = TL.DATA, TX = DATA.TEXT, PAL = CFG.PAL;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const R = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
-  const BTN_IDS = ['danh', 'bo', 'goiy', 'xep', 'menu'];
+  const BTN_IDS = ['danh', 'bo', 'goiy', 'xep', 'doi', 'menu'];
   const CAP = 22; // caption band under the Quy nhan slots
   let UI = 1;      // text scale of the current draw pass (rects.ui, or the info-panel unit)
 
@@ -102,10 +102,10 @@
     // buttons: top row Danh | Bo luot, bottom row Goi y | Xep, bottom-aligned with the band
     const bx = X0 + W - btnW;
     if (short) {   // Danh biggest on top, then Bo luot, Goi y, Xep; the column spans the full height beside hand and table
-      const sg4 = 5, rs = Math.floor((H - 3 * sg4) / 5.2), rD = H - 3 * (rs + sg4);
-      btnS = { danh: R(bx, Y0, btnW, rD), bo: R(bx, Y0 + rD + sg4, btnW, rs), goiy: R(bx, Y0 + rD + rs + 2 * sg4, btnW, rs), xep: R(bx, Y0 + rD + 2 * rs + 3 * sg4, btnW, rs) };
+      const sg4 = 5, rs = Math.floor((H - 4 * sg4) / 6.2), rD = H - 4 * (rs + sg4);
+      btnS = { danh: R(bx, Y0, btnW, rD), bo: R(bx, Y0 + rD + sg4, btnW, rs), goiy: R(bx, Y0 + rD + rs + 2 * sg4, btnW, rs), xep: R(bx, Y0 + rD + 2 * rs + 3 * sg4, btnW, rs), doi: R(bx, Y0 + rD + 3 * rs + 4 * sg4, btnW, rs) };
     }
-    const r2 = clamp(Math.round(bandH * 0.4), 48, 76), r1 = clamp(bandH - r2 - 6, 52, 100), bg = 6, hw = Math.floor((btnW - bg) / 2);
+    const r2 = clamp(Math.round(bandH * 0.4), 48, 76), r1 = clamp(bandH - r2 - 6, 52, 100), bg = 6, hw = Math.floor((btnW - bg) / 2), t3 = Math.floor((btnW - 2 * bg) / 3);
     const by2 = Y0 + H - r2, by1 = by2 - bg - r1;
     const qn = qnGeometry(ax, Y0, slotH, qg);
     const oppSeat = R(ax + qn.row.w + gap, Y0, aW - qn.row.w - gap, topH);
@@ -140,7 +140,7 @@
     return {
       mode: 'landscape', panel: panel, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, deckCol: deckCol, table: table, tablePlay: sg.tablePlay,
       pot: sg.pot, ribbon: sg.ribbon, comboBox: comboBox, diemBox: diemBox, theBox: theBox, dbBox: info.dbBox, hand: hand,
-      btn: btnS ? Object.assign(btnS, { menu: menu }) : { danh: R(bx, by1, hw, r1), bo: R(bx + hw + bg, by1, btnW - hw - bg, r1), goiy: R(bx, by2, hw, r2), xep: R(bx + hw + bg, by2, btnW - hw - bg, r2), menu: menu },
+      btn: btnS ? Object.assign(btnS, { menu: menu }) : { danh: R(bx, by1, hw, r1), bo: R(bx + hw + bg, by1, btnW - hw - bg, r1), goiy: R(bx, by2, t3, r2), xep: R(bx + t3 + bg, by2, t3, r2), doi: R(bx + 2 * (t3 + bg), by2, btnW - 2 * (t3 + bg), r2), menu: menu },
       cardH: cardH, tableCardH: sg.tableCardH, compact: sg.compact, oppCardH: og.oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), info: info, plateW: og.plateW, caption: CAP,
     };
   }
@@ -168,9 +168,9 @@
     const table = R(X0, y, W, tableH); y += tableH + gap;
     const comboBox = R(X0, y, W, comboH); y += comboH + gap;
     const hand = R(X0, y, W, handH); y += handH + gap;
-    const bg = 6, bw = Math.floor((W - 3 * bg) / 4), by = Y0 + H - btnH;
+    const bg = 6, bw = Math.floor((W - 4 * bg) / 5), by = Y0 + H - btnH;
     const btn = {};
-    ['danh', 'bo', 'goiy', 'xep'].forEach((id, i) => { btn[id] = R(X0 + i * (bw + bg), by, i === 3 ? W - 3 * (bw + bg) : bw, btnH); });
+    ['danh', 'bo', 'goiy', 'xep', 'doi'].forEach((id, i) => { btn[id] = R(X0 + i * (bw + bg), by, i === 4 ? W - 4 * (bw + bg) : bw, btnH); });
     const mS = 48;
     btn.menu = R(topBar.x + topBar.w - mS - 6, topBar.y + Math.round((tb - mS) / 2), mS, mS);
     const og = oppGeometry(oppSeat, oppH, 'portrait');
@@ -274,7 +274,7 @@
   }
   function enabledMap(vm) {
     const mine = vm.turn === 0 && !vm.busy;
-    return { danh: mine && !!vm.canPlay, bo: mine && !!vm.canPass, goiy: mine, xep: !vm.busy, menu: true };
+    return { danh: mine && !!vm.canPlay, bo: mine && !!vm.canPass, goiy: mine, xep: !vm.busy, doi: mine && !!vm.canDoi, menu: true };
   }
   const vanText = vm => TX.hud.van + ' ' + (vm.vanNo || 1) + '/' + vm.vanMax;
 
@@ -451,10 +451,23 @@
     txt(ctx, label, lx + bw / 2, by + bh / 2, clamp(bh - 6, 10, 28), { align: 'center', maxW: bw - 8, min: 10, shadow: PAL.denSon, outline: PAL.denSon, raw: true });
   }
 
+  // Suc bai: 1-3 small flat stars above the hand's top-left corner; 1 star also says "Bai xau"
+  function drawStars(ctx, vm, r) {
+    const n = vm.suc | 0; if (!vm.live || n < 1) return;
+    const h = r.hand, s = clamp(Math.round(r.cardH * 0.11), 7, 13), x0 = h.x + 4, cy = h.y - s * 0.2;
+    for (let i = 0; i < 3; i++) {
+      const cx = x0 + s + i * (s * 2.2), on = i < n;
+      ctx.fillStyle = on ? PAL.vangKim : PAL.nauCanhGian; ctx.globalAlpha = on ? 1 : 0.7; ctx.beginPath();
+      for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? s * 0.45 : s; ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); }
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    if (n === 1) txt(ctx, TX.stamp.baiXau + ' ×' + CFG.XAU_X, x0 + 3 * s * 2.2 + 4, cy, clamp(s + 3, 10, 16), { color: PAL.giayDo, min: 9, raw: true });
+  }
+
   function drawButtons(ctx, vm, r) {
     const en = enabledMap(vm), st = {};
     BTN_IDS.forEach(id => {
-      const label = id === 'xep' ? (vm.sortMode === 'suit' ? TX.btn.xepSuit : TX.btn.xepRank) : TX.btn[id];
+      const label = id === 'xep' ? (vm.sortMode === 'suit' ? TX.btn.xepSuit : TX.btn.xepRank) : id === 'doi' ? TX.btn.doi + ' ' + (vm.doiLeft || 0) : TX.btn[id];
       st[id] = btnState(vm, id, en[id]);
       if (id === 'menu' && r.mode === 'portrait') {
         A().button(ctx, r.btn.menu, '', st[id]);
@@ -474,7 +487,7 @@
     drawOppSeat(ctx, vm, r);
     if (r.mode === 'landscape') drawInfoLandscape(ctx, vm, r); else { drawTopBar(ctx, vm, r); drawCombo(ctx, vm, r, 0); }
     UI = r.ui;
-    drawButtons(ctx, vm, r);
+    drawButtons(ctx, vm, r); drawStars(ctx, vm, r);
     if (TL.FX && TL.FX.flame) { const on = !!vm.flames; if (r._fl !== on) { TL.FX.flame(r.diemBox, on); TL.FX.flame(r.theBox, on); r._fl = on; } }
   }
 
@@ -512,7 +525,7 @@
       combo: { name: DATA.COMBO_NAME.sanh, level: 2 }, diem: 118, the: 7, vanLeft: 2, vanMax: 3, lixi: 11, oppId: ban.id, oppName: ban.name,
       house: { name: hr.name, quote: hr.quote, short: hr.short }, oppCount: 6, oppHeo: 1, oppReveal: [], deckLeft: 32,
       qn: [{ id: 'chu_xe_om', n: 0 }, { id: 'heo_dat', n: 3 }, { id: 'ba_ban_xoi', n: 0 }, { id: 'dan_cho_lon', n: 0 }, null],
-      turn: 0, canPlay: true, canPass: true, busy: false, sortMode: 'rank', msg: null, flames: false, live: true, vanNo: 2, j: {},
+      turn: 0, canPlay: true, canPass: true, canDoi: true, doiLeft: 2, suc: 2, busy: false, sortMode: 'rank', msg: null, flames: false, live: true, vanNo: 2, j: {},
     };
   }
 
