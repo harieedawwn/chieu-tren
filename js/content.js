@@ -229,6 +229,15 @@
     ],
     STARTS: ['mac_dinh', 'ngheo', 'cung', 'choi', 'tro', 'loc'],
   };
+  D.TEXT.modes = {
+    title: 'Chọn cách chơi', back: 'Quay lại', go: 'Bắt đầu', lock: 'Khóa', maiBtn: 'Cây mai', chieuLabel: 'Chiếu', startLabel: 'Khởi đầu',
+    thuong: ['Chơi thường', 'Ba chặng, chín bàn, tới Mùng Một.'], daily: ['Thử thách ngày', 'Cùng một ván cho mọi người, mỗi ngày một lượt.'],
+    vo_tan: ['Vô tận', 'Vào thẳng chặng 4 trở đi, không có điểm dừng.'], solo: ['Sòng bốn', 'Bốn người một chiếu.'],
+    needWin: 'Thắng một ván để mở', needLevel: 'Tiếng tăm cấp %d để mở', soon: 'Sắp có', done: 'Hôm nay đã chơi', today: 'Mỗi ngày một lượt',
+    lockStart: 'Mở ở Cây mai', hold: 'Giữ lại', unhold: 'Bỏ giữ', hint2: 'Chạm một nút để xem.', lockChieu: 'Thắng Chiếu trước để mở', hint: 'Vuốt hoặc phím mũi tên để chọn.',
+    mai: { title: 'Cây mai', have: 'Hoa mai: %d', cost: 'Tốn %d', buy: 'Mua', owned: 'Đã nở', need: 'Cần nút trước', poor: 'Thiếu hoa mai', lvl: 'Tiếng tăm cấp %d' },
+    end: { xp: 'Tiếng tăm', lvUp: 'Lên cấp %d', mai: 'Nhận %d hoa mai', share: 'Sao chép kết quả', copied: 'Đã chép', newBest: 'Chiếu mới mở' },
+  };
   D.TEXT.meta = {
     starts: {
       mac_dinh: ['Mặc định', 'Bắt đầu như thường.'],

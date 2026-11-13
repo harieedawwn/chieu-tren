@@ -63,7 +63,8 @@
   // ================================================================ TITLE
   const Title = (() => {
     const TITLE = 'CHIẾU TRÊN';
-    let cards = [], btns = Btns(), save = null, key = '', tt = 0, L = null, instant = false, menuDown = false, menuHov = false;
+    let cards = [], btns = Btns(), save = null, key = '', tt = 0, L = null, instant = false, menuDown = false, menuHov = false, maiDown = false, maiHov = false;
+    const maiRect = () => { const m = menuRect(); return { x: m.x - 8 - 112, y: m.y, w: 112, h: 44 }; };
     function lay() {
       const g = G(), w = g.w, h = g.h, sf = g.safe, k = [w, h, g.dpr, !!save].join();
       if (k === key) return; key = k;
@@ -93,7 +94,7 @@
       cards.forEach((s, i) => { s.deal({ x: L.zone.x + L.zone.w / 2, y: g.h + 90 }, 0.15 + i * 0.09, A.card(47 + i)); });
       FX.after(0.25, () => snd('shuffle'));
     }
-    const newGame = () => { const g = G(); g.run = TL.Run.create(newSeed()); if (TL.Tutorial && !g.flags.auto && !TL.Tutorial.done()) TL.Tutorial.begin(g.run); g.setScreen('table'); };
+    const newGame = () => { if (TL.Trans && TL.Screens.modes) TL.Trans.go('modes'); else { const g = G(); g.run = TL.Run.create(newSeed()); g.setScreen('table'); } };
     function cont() {
       const g = G(), r = readSave();
       if (!r) { save = null; key = ''; return; }
@@ -113,10 +114,17 @@
       txt(ctx, T.game.sub, L.cx, L.subY, L.subS, PAL.giayDo, 'center');
       btns.draw(ctx);
       menuBtn(ctx, menuRect(), menuDown, menuHov);
+      if (TL.Profile && TL.Screens.mai) {
+        A.button(ctx, maiRect(), T.title.mai, maiDown ? 'down' : maiHov ? 'hover' : 'idle');
+        const pr = TL.Profile.get(), b = pr.best;
+        if (b > 0) { const lbl = D.TEXT.meta.chieu[b], r = maiRect(); A.badge(ctx, lbl, r.x + r.w / 2, r.y + r.h + 18, { size: 14, fill: PAL.doSon, edge: PAL.vangKim }); }
+      }
     }
     function pointer(e) {
-      if (e.type === 'move') menuHov = inR(menuRect(), e.x, e.y);
+      if (e.type === 'move') { menuHov = inR(menuRect(), e.x, e.y); maiHov = inR(maiRect(), e.x, e.y); }
       if (e.type === 'down' && inR(menuRect(), e.x, e.y)) { menuDown = true; snd('button'); return; }
+      if (e.type === 'down' && inR(maiRect(), e.x, e.y)) { maiDown = true; snd('button'); return; }
+      if (e.type === 'up' && maiDown) { maiDown = false; if (inR(maiRect(), e.x, e.y)) TL.Trans.go('mai'); return; }
       if (e.type === 'up' && menuDown) { menuDown = false; if (inR(menuRect(), e.x, e.y)) G().setScreen('settings'); return; }
       btns.pointer(e, act);
     }
@@ -128,7 +136,7 @@
   const Shop = (() => {
     let run, items, shopS, ownS, fly, sel, btns, cv, L, key, lvl, note, noteTok = 0, menuDown = false, menuHov = false, busy = 0;
     const statsOf = (type, lv) => { const b = CFG.BASE[type], g = CFG.SAO_GAIN[type]; return { diem: b.diem + (lv - 1) * g.diem, the: b.the + (lv - 1) * g.the }; };
-    const freeSlot = () => run.qn.indexOf(null);
+    const freeSlot = () => { for (let i = 0; i < (run.qnMax || CFG.SHOP.QN_SLOTS); i++) if (!run.qn[i]) return i; return -1; };
     const why = i => { const it = items[i]; if (!it || it.sold) return 'sold'; if (it.kind === 'qn' && freeSlot() < 0) return 'slots'; if (run.money < it.price) return 'money'; return null; };
     const rerollCost = () => CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls;
     const texOf = it => (it.kind === 'qn' ? A.quyNhan(it.id) : A.sao(it.id));
@@ -363,7 +371,8 @@
 
   // ================================================================ END
   const End = (() => {
-    let run, won, btns = Btns(), cards = [], key = '', L, head = { a: 0 }, tt = 0, menuDown = false, menuHov = false;
+    let run, won, btns = Btns(), cards = [], key = '', L, head = { a: 0 }, tt = 0, menuDown = false, menuHov = false, fin = null, xpv = { v: 0 }, xp0 = 0, lvShown = 1, copied = false;
+    const XPH = () => (fin ? Math.round(base() * 5.6) : 0);
     const reached = () => (won ? 9 : run.chang * 3 + run.ban + 1);
     function rows() {
       const s = run.stats || {};
@@ -376,7 +385,7 @@
       const left = wide ? { x: X0, y: Y0 - 44, w: (X1 - X0) * 0.5, h: Y1 - Y0 + 44 } : { x: X0, y: Y0, w: X1 - X0, h: 0 };
       const bw = Math.min(300, (wide ? left.w : X1 - X0) - 8), bh = 52, gap = 10;
       const hs = fit(won ? T.end.win : T.end.lose, Math.min(wide ? 80 : 68, Math.round(h * 0.13)), (wide ? left.w : X1 - X0) * 0.96, 24);
-      const rowH = Math.round(u * 1.9), pw = Math.min(wide ? (X1 - X0) * 0.44 : X1 - X0, 420), ph = rows().length * rowH + 20 + Math.round(u * 1.6);
+      const rowH = Math.round(u * 1.9), pw = Math.min(wide ? (X1 - X0) * 0.44 : X1 - X0, 420), ph = rows().length * rowH + 20 + Math.round(u * 1.6) + XPH();
       L = { u: u, hs: hs, rowH: rowH };
       let cardH;
       if (wide) {
@@ -391,23 +400,32 @@
         L.headY = y0; L.subY = y0 + Math.round(hs * 1.3); L.panel = { x: cx - pw / 2, y: L.subY + Math.round(u * 1.5) + 14, w: pw, h: ph };
         const by = L.panel.y + ph + 14; L.b = [{ x: cx - bw / 2, y: by, w: bw, h: bh }, { x: cx - bw / 2, y: by + bh + gap, w: bw, h: bh }];
       }
-      btns.list = [{ id: 'again', label: T.end.again, r: roundR(L.b[0]) }, { id: 'title', label: T.end.toTitle, r: roundR(L.b[1]) }];
+      btns.list = [{ id: run && run.daily ? 'share' : 'again', label: run && run.daily ? (copied ? D.TEXT.modes.end.copied : D.TEXT.modes.end.share) : T.end.again, r: roundR(L.b[0]) }, { id: 'title', label: T.end.toTitle, r: roundR(L.b[1]) }];
     }
     const roundR = r => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) });
     function enter(args) {
       const g = G(); run = (args && args.run) || g.run; won = !!(args && args.result === 'won') || (run && run.phase === 'won');
-      FX.reset(); clearSave(); btns = Btns(); key = ''; head = { a: 0 }; tt = 0; menuDown = false;
+      FX.reset(); clearSave(); btns = Btns(); key = ''; head = { a: 0 }; tt = 0; menuDown = false; fin = null; copied = false; xpv = { v: 0 };
+      if (run && TL.Profile && !g.flags.auto && !run.finished) {
+        try { const pr = TL.Profile.get(); run.finished = true; fin = TL.Profile.finish(pr, run, won); TL.Profile.save(pr); xp0 = pr.xp - fin.xp; lvShown = fin.level0; } catch (e) { fin = null; }
+      }
       if (TL.BG) TL.BG.setMood(won ? 'title' : 'boss');
       lay();
       FX.stamp(won ? T.end.win : T.end.lose, won ? 'gold' : 'bad'); snd(won ? 'venhat' : 'thua');
       FX.after(0.9, () => FX.tween(head, { a: 1 }, 0.4, 'out'));
+      if (fin) FX.after(1.5, () => FX.tween(xpv, { v: 1 }, FX.reducedMotion ? 0.01 : 1.4, 'inout'));
       if (won) {
         snd('gong');
         [0.2, 0.6, 1.1, 1.8].forEach((t, i) => FX.after(t, () => { const g2 = G(); FX.confetti(g2.w * (0.2 + 0.2 * (i % 4)), g2.h * 0.3, 60); snd('coin', { pitch: 1 + i * 0.1, vol: 0.6 }); }));
       }
     }
-    function again() { const g = G(); g.run = TL.Run.create(newSeed()); g.setScreen('table'); }
-    function act(id) { if (id === 'again') again(); else G().setScreen('title'); }
+    function again() { if (TL.Modes) TL.Modes.again(); else { const g = G(); g.run = TL.Run.create(newSeed()); g.setScreen('table'); } }
+    function share() {
+      if (!run || !run.daily) return; const pr = TL.Profile.get();
+      try { navigator.clipboard.writeText(TL.Profile.dailyShare(pr.daily)); } catch (e) {}
+      copied = true; key = ''; snd('coin');
+    }
+    function act(id) { if (id === 'again') again(); else if (id === 'share') share(); else if (TL.Trans) TL.Trans.go('title'); else G().setScreen('title'); }
     function draw(ctx) {
       lay();
       ctx.save(); ctx.globalAlpha = head.a;
@@ -422,8 +440,23 @@
         txt(ctx, r[0], P.x + 14, y + 2, fit(r[0], L.u + 1, P.w - 120, 10), PAL.giayDo, 'left');
         txt(ctx, r[1], P.x + P.w - 14, y + 2, L.u + 3, PAL.vangKim, 'right');
       });
+      if (fin) drawXp(ctx, P);
       btns.draw(ctx);
       menuBtn(ctx, menuRect(), menuDown, menuHov);
+    }
+    function drawXp(ctx, P) {
+      const M = D.TEXT.modes.end, u = L.u, cur = Math.round(xp0 + fin.xp * xpv.v), lv = TL.Profile.level(cur), y = P.y + P.h - XPH() + 4;
+      if (lv.level > lvShown) { lvShown = lv.level; FX.stamp(M.lvUp.replace('%d', lv.level), 'gold'); snd('gong', { vol: 0.6 }); }
+      ctx.fillStyle = PAL.denSon; ctx.fillRect(P.x + 12, y - 4, P.w - 24, 2);
+      txt(ctx, M.xp + ' +' + fmt(Math.round(fin.xp * xpv.v)), P.x + 14, y + 2, L.u + 1, PAL.vangKim, 'left');
+      txt(ctx, D.TEXT.modes.mai.lvl.replace('%d', lv.level), P.x + P.w - 14, y + 2, L.u + 1, PAL.giayDo, 'right');
+      const bar = { x: P.x + 14, y: y + Math.round(u * 1.7), w: P.w - 28, h: Math.max(10, Math.round(u * 0.9)) };
+      ctx.fillStyle = PAL.denSon; ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
+      ctx.fillStyle = PAL.vangKim; ctx.fillRect(bar.x + 2, bar.y + 2, Math.round((bar.w - 4) * clamp(lv.into / lv.need, 0, 1)), bar.h - 4);
+      if (xpv.v >= 1) {
+        const bits = []; if (fin.mai > 0) bits.push(M.mai.replace('%d', fin.mai)); if (fin.newBest) bits.push(M.newBest);
+        if (bits.length) txt(ctx, bits.join(' · '), P.x + P.w / 2, bar.y + bar.h + 4, fit(bits.join(' · '), L.u + 1, P.w - 20, 10), PAL.laXanh, 'center');
+      }
     }
     function pointer(e) {
       if (e.type === 'move') menuHov = inR(menuRect(), e.x, e.y);
@@ -431,7 +464,7 @@
       if (e.type === 'up' && menuDown) { menuDown = false; if (inR(menuRect(), e.x, e.y)) G().setScreen('settings'); return; }
       btns.pointer(e, act);
     }
-    function key_(e) { if (e.key === 'enter' || e.key === 'space') again(); else if (e.key === 'esc') G().setScreen('settings'); }
+    function key_(e) { if (e.key === 'enter' || e.key === 'space') act(run && run.daily ? 'title' : 'again'); else if (e.key === 'esc') G().setScreen('settings'); }
     return { enter: enter, exit() {}, resize() { key = ''; }, update(dt) { tt += dt; lay(); }, draw: draw, pointer: pointer, key: key_ };
   })();
 
@@ -520,4 +553,5 @@
 
   TL.Screens = TL.Screens || {};
   Object.assign(TL.Screens, { title: Title, shop: Shop, end: End, settings: Settings });
+  TL.Screens._u = { Btns: Btns, txt: txt, fit: fit, base: base, inR: inR, clamp: clamp, snd: snd, wrap: wrap };
 })(globalThis.TL = globalThis.TL || {});

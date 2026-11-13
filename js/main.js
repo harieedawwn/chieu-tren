@@ -106,7 +106,7 @@
   function bindInput() {
     const pos = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     const send = (type, e) => {
-      const s = top(); if (!s || !s.pointer) return; const p = pos(e);
+      const s = top(); if (!s || !s.pointer || (TL.Trans && TL.Trans.busy())) return; const p = pos(e);
       if (TL.Tutorial && TL.Tutorial.on() && !Game.overlay && TL.Tutorial.pointer({ type: type, x: p.x, y: p.y, id: e.pointerId })) return;
       s.pointer({ type: type, x: p.x, y: p.y, id: e.pointerId }); };
     canvas.addEventListener('pointerdown', guard(e => { e.preventDefault(); unlock(); try { canvas.setPointerCapture(e.pointerId); } catch (x) {} send('down', e); }, 'pointer'));
@@ -122,7 +122,7 @@
       const k = KEYS[e.key]; if (!k) return;
       e.preventDefault(); unlock(); if (e.repeat) return;
       if (TL.Tutorial && TL.Tutorial.on() && !Game.overlay && TL.Tutorial.key(k)) return;
-      const s = top(); if (s && s.key) s.key({ key: k });
+      const s = top(); if (s && s.key && !(TL.Trans && TL.Trans.busy())) s.key({ key: k });
     }, 'key'));
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
   }
@@ -134,6 +134,7 @@
     resize();
     const FX = TL.FX;
     if (FX) FX.update(dt);
+    if (TL.Trans) TL.Trans.update(dt);
     if (Game.screen && Game.screen.update && !Game.overlay) Game.screen.update(dt);
     if (Game.overlay && Game.overlay.update) Game.overlay.update(dt);
     if (TL.BG) TL.BG.render(clock);
@@ -146,6 +147,7 @@
     if (Game.overlay && Game.overlay.draw) Game.overlay.draw(ctx);
     if (FX) FX.draw(ctx);
     ctx.restore();
+    if (TL.Trans) TL.Trans.draw(ctx);
     if (TL.Tutorial && TL.Tutorial.on()) TL.Tutorial.draw(ctx, dt);
     const l = $('#loading'); if (l && !l.hidden) l.hidden = true;
   }, 'frame');

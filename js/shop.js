@@ -45,7 +45,7 @@
 
   let run, items, ownS, queS, shopS, fly, sel, btns, cv, L, key, lvl, note, noteTok = 0, bauSeen = -1, humAt = -1, menuDown = false, menuHov = false, pk = null;
 
-  const freeQn = () => run.qn.indexOf(null), freeQue = () => run.que.indexOf(null);
+  const freeQn = () => { for (let i = 0; i < (run.qnMax || CFG.SHOP.QN_SLOTS); i++) if (!run.qn[i]) return i; return -1; }, freeQue = () => run.que.indexOf(null);
   const rerollCost = () => CFG.SHOP.REROLL_BASE + CFG.SHOP.REROLL_STEP * run.shop.rerolls;
   function why(i) {
     const it = items[i]; if (!it || it.sold) return 'sold';
@@ -123,11 +123,11 @@
   function buildBtns() {
     if (pk) { btns.list = [{ id: 'choose', label: T.btn.chon, r: L.pkBtn[0], on: pk.phase === 'pick' && pk.sel != null }, { id: 'skip', label: T.pack.skip, r: L.pkBtn[1], on: pk.phase === 'pick' }]; return; }
     const hasSel = !!sel && (sel.z === 'shop' ? !!shopS[sel.i] : sel.z === 'own' ? !!run.qn[sel.i] : !!run.que[sel.i]);
-    const sell2 = hasSel && sel.z === 'que', S = sell2 ? L.slots : L.slotsFull;
+    const canHold = hasSel && sel.z === 'shop' && run.perk && run.perk.giu && items[sel.i] && items[sel.i].kind !== 'pack' && !items[sel.i].sold, sell2 = hasSel && (sel.z === 'que' || canHold), S = sell2 ? L.slots : L.slotsFull;
     btns.list = [
       { id: 'buy', label: mainLabel(), r: S[0], on: hasSel && (sel.z !== 'shop' || !why(sel.i)) },
       { id: 'reroll', label: T.shop.reroll + ' · ' + rerollCost(), r: S[1], on: run.money >= rerollCost() },
-    ].concat(sell2 ? [{ id: 'sell', label: T.shop.sell, r: S[2] }] : [], [{ id: 'next', label: T.shop.next, r: sell2 ? S[3] : S[2], on: true }]);
+    ].concat(sell2 ? [canHold ? { id: 'hold', label: items[sel.i].keep ? D.TEXT.modes.unhold : D.TEXT.modes.hold, r: S[2] } : { id: 'sell', label: T.shop.sell, r: S[2] }] : [], [{ id: 'next', label: T.shop.next, r: sell2 ? S[3] : S[2], on: true }]);
   }
 
   // ---------------------------------------------------------------- flow
@@ -213,6 +213,7 @@
     if (pk) return;
     if (id === 'buy') { if (!sel) return; if (sel.z === 'shop') doBuy(sel.i); else if (sel.z === 'que') doUse(sel.i); else doSell('own', sel.i); }
     else if (id === 'sell') { if (sel && sel.z === 'que') doSell('que', sel.i); }
+    else if (id === 'hold') { if (sel && sel.z === 'shop') { const r = TL.Run.hold(run, sel.i); if (r.ok) { snd('place'); saveRun(run); buildBtns(); } } }
     else if (id === 'reroll') doReroll();
     else if (id === 'next') go();
   }
@@ -353,6 +354,7 @@
     txt(ctx, T.shop.queSlots.replace('%d', run.que.filter(Boolean).length).replace('%d', CFG.SHOP.QUE_SLOTS), L.que[0].x, L.labelA, u, PAL.giayDo, 'left');
     txt(ctx, T.shop.forSale, L.card[0].x, L.labelB, u, PAL.giayDo, 'left');
     L.own.concat(L.que).forEach(r => A.panel(ctx, r, { fill: PAL.denSon, border: PAL.nauCanhGian, shadow: null, radius: 3 }));
+    for (let i = run.qnMax || CFG.SHOP.QN_SLOTS; i < CFG.SHOP.QN_SLOTS; i++) { const r = L.own[i]; ctx.save(); ctx.globalAlpha = 0.6; ctx.fillStyle = PAL.denSon; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.restore(); txt(ctx, D.TEXT.modes.lock, r.x + r.w / 2, r.y + r.h / 2 - 8, fit(D.TEXT.modes.lock, u, r.w - 6, 9), PAL.giayDo, 'center'); }
     L.card.forEach((r, i) => { if (items[i].sold || !shopS[i]) { A.panel(ctx, r, { fill: PAL.denSon, border: PAL.nauCanhGian, shadow: null, radius: 3 }); if (items[i].sold) txt(ctx, T.shop.sold, r.x + r.w / 2, r.y + r.h / 2 - 8, fit(T.shop.sold, u, r.w - 6, 9), PAL.giayDo, 'center'); } });
     if (sel && !pk) { const r = sel.z === 'shop' ? L.card[sel.i] : sel.z === 'que' ? L.que[sel.i] : L.own[sel.i]; if (r) A.panel(ctx, { x: r.x - 4, y: r.y - 4 - 16, w: r.w + 8, h: r.h + 8 + 16 }, { fill: PAL.denSon, border: PAL.vangKim, shadow: null, radius: 4 }); }
     auras(ctx);

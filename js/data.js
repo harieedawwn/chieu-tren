@@ -85,7 +85,7 @@
 
   const TEXT = {
     game: { title: 'Chiếu Trên', sub: 'Tiến Lên ngày Tết.', win: 'Mùng Một' },
-    title: { play: 'Chơi mới', cont: 'Chơi tiếp', settings: 'Cài đặt', sotay: 'Sổ tay' },
+    title: { play: 'Chơi mới', cont: 'Chơi tiếp', settings: 'Cài đặt', sotay: 'Sổ tay', mai: 'Cây mai' },
     btn: {
       danh: 'Đánh', bo: 'Bỏ lượt', goiy: 'Gợi ý', xep: 'Xếp', doi: 'Đổi', menu: 'Menu',
       xepRank: 'Xếp: số', xepSuit: 'Xếp: chất', ok: 'Được', back: 'Quay lại', dung: 'Dùng', chon: 'Chọn',
