@@ -81,3 +81,81 @@ Tranh: js/art3.js mới, bọc TL.Art như art2.js, phong cách Đông Hồ; Bá
 - Mở rộng tests/sim.js cho Lượt đổi, Sức bài, Báu vật, Khởi đầu, Chiếu và chung kết 4 người. Chỉ chỉnh số, 300 run mỗi lượt, tối đa 4 lượt.
 - Mục tiêu: Chiếu 1, Mặc định, cây rỗng: chặng 1 ≥ 85%, thắng run 25-40%; cây đầy thêm tối đa 6 điểm % thắng; Chiếu 6 thắng 3-10%; run có Báu vật thắng tối đa 1,6× trung bình; không Quý nhân nào quá 2× trung bình; tỉ lệ vượt Sòng Giao thừa khi tới được là 45-65%.
 - Cập nhật README.md (tiếng Việt: chế độ, meta, thuật ngữ). Chạy đủ bộ test và ?auto với seed 1, 2, 3 và một seed Sòng bốn; push; mở https://harieedawwn.github.io/chieu-tren/ xác nhận bản mới và PWA cài được.
+
+## Round 3 (vòng chỉnh bóng; bước n trong PLAN.md ↔ mục R tương ứng ghi trong ngoặc)
+
+### R0 Nguyên tắc
+- Giữ nguyên hướng nghệ thuật và Glossary của SPEC. Ưu tiên điện thoại: thứ quan trọng nhất to nhất (bài trên tay, combo trên bàn, Hũ, các nút chính); phần còn lại gọn.
+- Mọi hiệu ứng mới nằm trong ngân sách hiệu năng của R3 và bỏ qua được (skip) ở chỗ nó làm chậm lượt chơi.
+
+### R1 Sửa nhanh (bước 1)
+(a) Bộ đếm ván luôn hiện đủ "Ván 1/3": co chữ cho vừa ô, KHÔNG BAO GIỜ dấu "…". Kiểm mọi nhãn HUD ở mọi kích thước xem có bị cắt "…" không.
+(b) Sao cạnh bài tay là Sức bài nhưng chưa có nhãn: thêm nhãn "Sức bài" bên cạnh. Chạm vào sao hiện bong bóng ngắn: 1 sao "Bài xấu: ăn hũ được ×1.5 Nhân."; 2 sao "Bài thường."; 3 sao "Bài đẹp.".
+(c) Hộp ô Quẻ đang chồng lên vùng đánh trên bàn: chuyển ô Quẻ sang cạnh hàng Quý nhân (hoặc vào cột trái khi ngang) để không gì chồng lên bàn, ở mọi layout.
+(d) Điều khiển: Đánh (to nhất) và Gợi ý cạnh nhau ở đầu khu nút; Bỏ lượt ở giữa, cách ít nhất 16 px, khác màu rõ (đỏ son) để không bấm nhầm; Đổi bên dưới. Nút Xếp rời bàn: chuyển thành công tắc trong Menu ("Xếp bài: theo số / theo chất") kèm mặc định trong Cài đặt; phím S vẫn dùng được. Vùng chạm ≥ 48 px.
+(e) Sòng bốn mở sau khi thắng bất kỳ một bàn nào (không cần cấp Tiếng tăm). Khoảnh khắc mở hiện con dấu "Mở khoá: Sòng bốn" kèm hiệu ứng ngắn. Thẻ chế độ khóa nói thẳng điều kiện ("Thắng 1 bàn để mở."). Vô tận vẫn mở bằng lần thắng đủ run đầu tiên. (Cập nhật D7: thay điều kiện cấp 3.)
+(f) Nhịp chia bài: hiện chia xong sau khi tiếng chia kết thúc. Làm hoạt cảnh chia nhanh hơn (giãn cách ngắn hơn, bay ngắn hơn) để tiếng "tách" mỗi lá vang đúng lúc lá đó hạ xuống, lá cuối hạ cùng tiếng cuối. Giữ nguyên âm thanh.
+
+### R2 Điện thoại ngang siêu rộng (bước 2)
+- Áp dụng cho tỉ lệ 20:9 trở lên: 915×412, 932×430, 800×360, 844×390.
+- Lỗi: lá đã đánh trên bàn quá nhỏ, nước của đối thủ không đọc được. Combo hiện tại trên bàn vẽ bằng cỡ bài tay hoặc nhỏ hơn một bậc, đặt giữa vùng đánh. Nước vừa đánh của đối thủ phải rõ, kèm thẻ tên nhỏ; bộ đếm Hũ nằm cạnh.
+- Dùng chiều rộng thừa: cột trái (rail); hàng Quý nhân + Quẻ ở trên; bàn ở giữa; nút ở cột phải; bài tay dọc đáy, chồng nhau nhiều hơn khi cần thay vì thu nhỏ.
+- Sửa chip 4 người ở layout này. Tôn trọng safe-area inset (tai thỏ, góc bo, thanh cử chỉ Android).
+- Kiểm bằng Playwright cả Chromium (Android) lẫn WebKit (iPhone) giả lập thiết bị ở mọi cỡ trên cộng 390×844, 412×915, 1280×720, 1920×1080.
+
+### R3 Hiệu năng (bước 3)
+Điện thoại giật ở cảnh chiến thắng quay chậm. Cách làm: đo trước, sửa đúng nguyên nhân đã đo, rồi chặn tái phát.
+(a) Thêm ?perf: lớp phủ nhỏ hiện fps, thời gian khung p50/p95 và bậc chất lượng hiện tại, cùng window.__perf.
+(b) Profile bằng Playwright Chromium, CDP CPU throttling 6×, 915×412, DPR 3: chạy kịch bản chia bài, một chuỗi tính điểm lớn, một lần chặt, bàn 4 người và cảnh kết; ghi hàm nào chiếm nhiều nhất.
+(c) Sửa theo thứ tự chi phí đã đo, dùng những gì hợp lý:
+- Lớp tĩnh (panel, nhãn, ô, nỉ bàn) vẽ vào canvas ngoài màn hình, chỉ vẽ lại khi giá trị đổi.
+- Render sẵn texture lá bài và chân dung ở tỉ lệ nguyên cuối cùng một lần, không scale mỗi khung.
+- Cache bitmap chữ (đã có một phần): mở rộng sang popup và bộ đếm.
+- Pool hạt, popup, pháo giấy với trần cố định.
+- Không getImageData hay xử lý từng pixel trong vòng khung; dissolve dùng chuỗi mặt nạ tính trước.
+- Tránh shadowBlur và ctx.filter; trần DPR canvas = 2.
+- Nền WebGL render 30 fps và tạm dừng khi zoom cảnh kết.
+- Kẹp dt; bỏ việc cho sprite ngoài màn hình.
+(d) Chất lượng thích ứng: bậc cao / vừa / thấp chọn tự động từ thời gian khung (hạ khi p95 > 22 ms trong 2 s; nâng sau 10 s dư dả). Bậc thấp giảm số hạt, độ phân giải nền, rung và bụi (motes). Cài đặt "Hiệu năng: Tự động / Cao / Tiết kiệm".
+(e) Chốt chặn: tests/perf.js chạy cùng các cảnh kịch bản không đầu (headless) với throttling 6×, FAIL nếu p95 khung vượt ngân sách (20 ms; cảnh kết 24 ms) hoặc nếu khung nào cấp phát nhiều hạt hơn trần. Tạo CLAUDE.md ở gốc repo (dưới 40 dòng): tóm tắt dự án, trỏ tới quy trình phiên trong PLAN.md, các quy tắc hiệu năng trên, và câu "run node tests/perf.js before every commit that touches rendering, fx, sprites, background or screens; a failing perf test blocks the commit". Báo cáo p95 trước/sau.
+
+### R4 Popup, bỏ qua hoạt cảnh, Cây mai (bước 4)
+(a) Popup và chữ thông báo quá to trên điện thoại: tính cỡ từ cỡ lá bài, không từ viewport (trên điện thoại khoảng 60% cỡ hiện tại), vẫn dễ đọc, không bao giờ che lá trên tay hay ô mà nó đang nạp. Áp dụng cho con dấu (stamp) và toast.
+(b) Bỏ qua hoạt cảnh: chạm (hoặc Space/Enter) khi đang đếm tiền thưởng, mở màn bàn (intro), chuỗi tính điểm, cảnh kết, mở gói, thanh XP và lên cấp thì tua nhanh mượt (hàng đợi chạy 8×, ổn định trong dưới 0,3 s có easing, không cắt cứng); chạm lần hai nhảy tới trạng thái cuối. Kết quả giống hệt.
+(c) Cây mai: nút Mua đang đè lên mô tả nút; bố trí panel chi tiết sao cho mô tả, giá và nút không bao giờ chồng nhau ở mọi cỡ.
+
+### R5 Tranh nhân vật (bước 5: đối thủ + boss; bước 6: Quý nhân + Báu vật)
+- Vẽ lại mọi chân dung: 6 đối thủ thường, 6 boss, toàn bộ Quý nhân và 5 Báu vật.
+- Nâng lưới chân dung lên 32×40 (khung và layout thẻ thích ứng).
+- Một khuôn mặt chung (tỉ lệ đầu, vị trí mắt, mũi, miệng) để cả dàn nhân vật đọc như một họ. Phong cách tranh khắc gỗ Đông Hồ: viền đen đậm, màu phẳng, một tông bóng mỗi màu, hình bóng (silhouette) rõ, mỗi nhân vật có đạo cụ hoặc trang phục nhận ra được, biểu cảm hợp tính cách.
+- Không pixel lạc, viền đứt, hay mặt lệch.
+- tests/art.lint.js: mỗi lưới đúng kích thước khai báo và chỉ có ký tự bảng màu; viền khép kín; không có pixel đơn lẻ trừ điểm sáng cố ý (đánh dấu trong lưới).
+- Dựng contact sheet bằng Playwright, xem từng mặt ở 1× và 3×, sửa, tối đa 3 vòng.
+
+### R6 Logo (bước 7)
+- Một dấu hiệu dùng làm logo tiêu đề, favicon, icon PWA (192, 512, maskable có vùng an toàn) và apple-touch-icon: ô vuông sơn mài đỏ son, viền chiếu cói đan (hoa văn thoi đan chéo vàng kim và nâu), giữa là hai lá bài xòe (Át cơ và một lá heo với con heo Đông Hồ), pixel art sắc nét, đọc được ở 48 px.
+- Màn tiêu đề ghép logo với chữ "CHIẾU TRÊN" bằng GameFont theo kiểu viền và bóng hiện có; logo đóng dấu vào với một vệt mực bắn ngắn.
+- Tạo lại icon bằng tools/build-pwa.js và tăng phiên bản cache service worker.
+
+### R7 "Luật bài" (bước 8)
+- Mở từ Menu (và mời một lần cho người mới trước ván đầu). Thẻ ngắn xếp trang, chủ yếu hình, dùng sprite lá bài thật, mỗi trang một ý, bong bóng Ông Táo cho câu giải thích một dòng, vuốt hoặc mũi tên.
+- Trang: 1 thứ tự lá (3 nhỏ nhất → 2 lớn nhất, thành một hàng); 2 chất (♠ < ♣ < ♦ < ♥) khi bằng số; 3 rác, đôi, sám, tứ quý có ví dụ; 4 sảnh (3+ lá liên tiếp, heo không vào sảnh); 5 đôi thông (3+ đôi liên tiếp); 6 cách đè: cùng loại cùng độ dài, lá đầu cao hơn (ví dụ có hoạt cảnh); 7 chặt heo (cái gì chặt cái gì, bảng hình nhỏ); 8 ăn hũ; 9 thối heo, cóng, tới trắng.
+- Mỗi trang có tương tác "thử" nhỏ chỗ có ích (vd chạm vào bộ đè được). Vừa mọi layout, không cuộn trang.
+
+### R8 Chuyển động (bước 9)
+Để game có cảm giác đắt và mới; tất cả trong ngân sách hiệu năng, theo reducedMotion và skip.
+(a) Chuyển cảnh đặc trưng "chiếu cói": các dải đan qua màn như chiếu đan, đan xen rồi tháo ra để lộ màn kế; dùng giữa tiêu đề, chọn chế độ, bàn và shop.
+(b) Intro boss: mực loang lộ ra theo bảng màu của boss, thẻ luật mở ra như cuộn giấy.
+(c) Vào Chợ Tết: thẻ shop hạ xuống từng thẻ như phong bao lì xì lật.
+(d) Intro tiêu đề: xào bài kiểu riffle rồi xòe thành con dấu logo.
+(e) Bộ đếm odometer: Tổng điểm, Hũ, lì xì lăn từng chữ số.
+(f) Đồng xu đổ vào Hũ khi nó tăng (pool, có trần).
+(g) Thắng một vòng thì bài trên bàn gom thành chồng xoay bay tới người thắng.
+(h) Hết ván thì mọi lá gom về bộ bài bằng riffle.
+(i) Lên cấp và mua trong Cây mai nở hoa mai.
+(j) Nút có squash khi nhấn và dải lấp lánh pixel khi hover (không gradient).
+(k) Thẻ chế độ nghiêng giả 3D theo con trỏ như các lá bài.
+Easing outBack, outExpo, lò xo; thời lượng 250-700 ms.
+
+### R9 Chốt (bước 10)
+- Ma trận thiết bị Playwright đầy đủ (Chromium Android và WebKit iPhone ở mọi cỡ R2, dọc và ngang); perf.js qua ở cảnh kết; mọi test; ?auto seed 1-3 và một lượt Sòng bốn không lỗi console; README cập nhật (tiếng Việt); push; mở https://harieedawwn.github.io/chieu-tren/ xác nhận bản mới, logo và PWA cài được.
