@@ -7,6 +7,9 @@
  *   TL.Rules.view(state, seat)          -> View (own hand only; no hands/log); legal/canPass filled on seat's turn
  *   TL.Rules.winner(state)              -> 0 | 1 | null
  *   TL.Rules.swap(state, seat, cardIds, rng) -> Event[]  {type:'swap', seat, out, in}; swaps 1..3 own cards with cards not dealt this ván; own turn only; [] if illegal
+ * opts.seats = 2 | 4 (default 2; 4 -> CFG.HAND_SIZE_4 cards each, seat 0 = player, 1-3 = AI in turn order). Passing leaves the current vòng; the vòng ends when one seat has not passed (it takes the hũ and leads).
+ *   A ván ends when a seat is out of cards: it wins and collects from every other seat (event vanEnd: left[], heo[] per seat, congN = seats with no play, cong = congN > 0).
+ *   state.seats, state.passed[seat] (passed in the current vòng); view adds seats, counts[] (cards per seat), passed[]; oppCount = fewest cards among the other seats; oppHands (4 seats) only while revealed.
  * mods: passMax (seat 0 may pass at most this many times a ván while it has a legal play; set by Run for Vua Bài), noChat, mustBeat, oppLeads, sameSuitStraight (sảnh needs one suit), noHeoFinish (last play may not contain a heo), twoVans (read by Run)
  * state.reveal = [bool, bool]: reveal[seat] true -> view(state, seat).oppHand (only then present) = the opponent's whole hand; both cleared when a hũ is taken (event 'vong').
  * state.peek = id[] opponent cards shown by Thầy bói (set by Run.startVan, else []).
@@ -21,19 +24,20 @@
 
   function vanEnd(s, w, pot, tt) {
     s.over = true; s.winner = w; s.pot = 0;
-    return { type: 'vanEnd', winner: w, left: [s.hands[0].length, s.hands[1].length], heo: [heoN(s.hands[0]), heoN(s.hands[1])],
-      cong: s.plays[1 - w] === 0, toiTrang: tt, pot: pot };
+    const cn = s.plays.filter((p, i) => i !== w && p === 0).length;
+    return { type: 'vanEnd', winner: w, left: s.hands.map(h => h.length), heo: s.hands.map(heoN), congN: cn,
+      cong: cn > 0, toiTrang: tt, pot: pot };
   }
 
   function newVan(o) {
-    const n = o.handSize || CFG.HAND_SIZE, d = Array.from({ length: 52 }, (_, i) => i), mods = o.mods || {};
+    const N = o.seats === 4 ? 4 : 2, n = o.handSize || (N === 4 ? CFG.HAND_SIZE_4 || CFG.HAND_SIZE : CFG.HAND_SIZE), d = Array.from({ length: 52 }, (_, i) => i), mods = o.mods || {};
     if (!o.hands) for (let i = 51; i > 0; i--) { const j = Math.floor(o.rng() * (i + 1)); const t = d[i]; d[i] = d[j]; d[j] = t; }
-    const hands = o.hands ? [o.hands[0].slice().sort(asc), o.hands[1].slice().sort(asc)] : [d.slice(0, n).sort(asc), d.slice(n, 2 * n).sort(asc)];   // o.hands = fixed deal (tutorial)
-    const low = Math.min(...hands[0], ...hands[1]);
-    const leader = mods.oppLeads ? 1 : o.leader === 0 || o.leader === 1 ? o.leader : hands[0].includes(low) ? 0 : 1;
-    const s = { hands: hands, table: null, vongPlays: [], pot: 0, turn: leader, leader: leader, mods: mods, plays: [0, 0], played: [],
-      log: [], passes: [0, 0], over: false, winner: null, toiTrang: null, reveal: [false, false], peek: [], scoreFn: o.scoreFn || zero };
-    const evs = [{ type: 'deal', hands: [hands[0].slice(), hands[1].slice()], leader: leader }];
+    const hands = o.hands ? o.hands.map(h => h.slice().sort(asc)) : Array.from({ length: N }, (_, i) => d.slice(i * n, (i + 1) * n).sort(asc));   // o.hands = fixed deal (tutorial)
+    const low = Math.min(...hands.map(h => h[0]));
+    const leader = mods.oppLeads ? 1 : Number.isInteger(o.leader) && o.leader >= 0 && o.leader < N ? o.leader : hands.findIndex(h => h.includes(low));
+    const s = { hands: hands, table: null, vongPlays: [], pot: 0, turn: leader, leader: leader, mods: mods, plays: hands.map(() => 0), played: [],
+      log: [], passes: hands.map(() => 0), over: false, winner: null, toiTrang: null, reveal: hands.map(() => false), peek: [], seats: N, passed: hands.map(() => false), scoreFn: o.scoreFn || zero };
+    const evs = [{ type: 'deal', hands: hands.map(h => h.slice()), leader: leader }];
     const quad = hands.findIndex(h => [48, 49, 50, 51].every(x => h.includes(x)));
     if (quad >= 0) {
       s.toiTrang = quad;
@@ -42,6 +46,8 @@
     emit(s, evs);
     return s;
   }
+
+  const nextSeat = (s, seat) => { for (let k = 1; k <= s.seats; k++) { const x = (seat + k) % s.seats; if (!s.passed[x]) return x; } return seat; };
 
   function legal(s, seat) {
     if (s.over || s.turn !== seat) return { plays: [], canPass: false };
@@ -69,25 +75,29 @@
     s.plays[seat]++; s.played.push(...c.cards); s.table = { combo: c, seat: seat }; s.vongPlays.push({ seat: seat, combo: c });
     if (!s.hands[seat].length) {
       const pot = s.pot;
-      s.reveal = [false, false];
+      s.reveal = s.reveal.map(() => false);
       evs.push({ type: 'vong', winner: seat, pot: pot, combo: c }, vanEnd(s, seat, pot, false));
-    } else { s.turn = 1 - seat; evs.push({ type: 'turn', seat: s.turn, lead: false }); }
+    } else { s.turn = nextSeat(s, seat); evs.push({ type: 'turn', seat: s.turn, lead: false }); }
     return emit(s, evs);
   }
 
   function pass(s, seat) {
     if (!legal(s, seat).canPass) return [];
-    s.passes[seat]++;
-    const w = 1 - seat, evs = [{ type: 'pass', seat: seat }, { type: 'vong', winner: w, pot: s.pot, combo: s.table.combo }, { type: 'turn', seat: w, lead: true }];
-    s.pot = 0; s.table = null; s.vongPlays = []; s.turn = w; s.reveal = [false, false];
+    s.passes[seat]++; s.passed[seat] = true;
+    const evs = [{ type: 'pass', seat: seat }], left = s.passed.map((p, i) => p ? -1 : i).filter(i => i >= 0);
+    if (left.length > 1) { s.turn = nextSeat(s, seat); evs.push({ type: 'turn', seat: s.turn, lead: false }); return emit(s, evs); }
+    const w = left[0];
+    evs.push({ type: 'vong', winner: w, pot: s.pot, combo: s.table.combo }, { type: 'turn', seat: w, lead: true });
+    s.pot = 0; s.table = null; s.vongPlays = []; s.turn = w; s.reveal = s.reveal.map(() => false); s.passed = s.passed.map(() => false);
     return emit(s, evs);
   }
 
   function view(s, seat) {
     const l = legal(s, seat);
-    const v = { seat: seat, hand: s.hands[seat].slice(), oppCount: s.hands[1 - seat].length, table: s.table && { combo: s.table.combo, seat: s.table.seat },
+    const others = s.hands.map((h, i) => i).filter(i => i !== seat), v = { seat: seat, hand: s.hands[seat].slice(), oppCount: Math.min(...others.map(i => s.hands[i].length)), table: s.table && { combo: s.table.combo, seat: s.table.seat },
       pot: s.pot, turn: s.turn, lead: s.table === null, played: s.played.slice(), plays: s.plays.slice(), mods: s.mods, legal: l.plays, canPass: l.canPass };
-    if (s.reveal[seat]) v.oppHand = s.hands[1 - seat].slice();
+    if (s.seats > 2) { v.seats = s.seats; v.counts = s.hands.map(h => h.length); v.passed = s.passed.slice(); }
+    if (s.reveal[seat]) { if (s.seats > 2) v.oppHands = others.map(i => s.hands[i].slice()); else v.oppHand = s.hands[1 - seat].slice(); }
     return v;
   }
 

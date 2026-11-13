@@ -1,7 +1,7 @@
 /* js/run.js  (owner BALANCE) run state, bàn flow, payout, shop, save. Pure logic, no DOM. Needs config, data, rules, scoring.
  * API  (RunState is plain JSON, SPEC §4)
- *   TL.Run.create(seed, opts?) -> run     new run at chặng 1 bàn 1, phase 'ban'. opts (all optional, from TL.Profile.options): {start:'mac_dinh'|'ngheo'|'cung'|'choi'|'tro'|'loc', chieu:1-6, perks:{doi1,giu,lai,reroll}, pool:{qn:[ids],que:[ids],bau:[ids]}, daily:true}
- *        run.start, run.chieu, run.perk, run.pool (absent = every card), run.qnMax (slots usable, 5 or 4 for 'tro'), run.tgtX, run.laiMax, run.boss2 (second house rule of the chặng-3 trùm, Chiếu 5+), run.big[chang] (house rule on bàn lớn, Chiếu 6), run.held (item kept by the giữ-đồ perk)
+ *   TL.Run.create(seed, opts?) -> run     new run at chặng 1 bàn 1, phase 'ban'. opts (all optional, from TL.Profile.options): {start:'mac_dinh'|'ngheo'|'cung'|'choi'|'tro'|'loc', chieu:1-6, perks:{doi1,giu,lai,reroll}, seats:2|4, pool:{qn:[ids],que:[ids],bau:[ids]}, daily:true}
+ *        run.seats (2 default, 4 = Sòng bốn: startVan deals CFG.HAND_SIZE_4 to 4 seats, BanInfo.seats), run.start, run.chieu, run.perk, run.pool (absent = every card), run.qnMax (slots usable, 5 or 4 for 'tro'), run.tgtX, run.laiMax, run.boss2 (second house rule of the chặng-3 trùm, Chiếu 5+), run.big[chang] (house rule on bàn lớn, Chiếu 6), run.held (item kept by the giữ-đồ perk)
  *   TL.Run.doiMax(run) -> n               Lượt đổi at the start of the current bàn (start 'choi' 0, Chiếu 6 -1, perk doi1 +1 on the first bàn of a chặng)
  *   TL.Run.interestMax(run) -> n          cap on Lãi (CFG.INTEREST_MAX + perk lai + start ngheo, Chiếu 4+ -2)
  *   TL.Run.hold(run, i) -> {ok, why?}     perk giu: mark shop item i (not a pack) to be offered again, unsold, in the next shop; calling it again on the same item clears it
@@ -52,6 +52,7 @@
   const META = () => CFG.META;
   const pickFrom = (run, arr) => arr[Math.floor(rand(run) * arr.length)];
   function applyOpts(run, o) {
+    run.seats = o.seats === 4 ? 4 : 2;
     run.start = o.start || 'mac_dinh'; run.chieu = Math.max(1, Math.min(6, o.chieu | 0 || 1)); run.perk = Object.assign({ doi1: 0, giu: 0, lai: 0, reroll: 0 }, o.perks || {});
     run.qnMax = CFG.SHOP.QN_SLOTS; run.tgtX = 1; run.laiMax = 0; run.held = null; run.big = [null, null, null];
     if (o.pool) run.pool = { qn: o.pool.qn.slice(), que: o.pool.que.slice(), bau: o.pool.bau.slice() };
@@ -89,7 +90,7 @@
       chang: run.chang, changName: run.chang < 3 ? c.name : T.end.endlessChang.replace('%d', run.chang + 1), ban: run.ban, kind: b.kind, name: boss && h ? h.name : b.name, opp: boss && h ? h.id : b.id, tag: boss && h ? T.hud.house : b.tag, house: hid, house2: hid2,
       rule: h ? { id: h.id, name: h.name, quote: h.quote, short: h.short, long: h.long } : null, rule2: h2 ? { id: h2.id, name: h2.name, quote: h2.quote, short: h2.short, long: h2.long } : null, mods: Object.assign({}, h ? h.mods : {}, h2 ? h2.mods : {}),
       target: target, aiLevel: run.chieu >= 3 ? CFG.AI_BY_CHANG[2] : CFG.AI_BY_CHANG[Math.min(run.chang, 2)], vanMax: vanMax,
-      vanUsed: run.vanUsed, vanLeft: vanMax - run.vanUsed, diem: run.diemBan, last: run.chang === 2 && run.ban === 2 && !run.endless,
+      vanUsed: run.vanUsed, vanLeft: vanMax - run.vanUsed, seats: run.seats || 2, diem: run.diemBan, last: run.chang === 2 && run.ban === 2 && !run.endless,
     };
   }
 
@@ -101,11 +102,11 @@
     run.van = { stack: 0, oppTake: 0 };
     if (typeof run.doi !== 'number') run.doi = doiMax(run);
     const st = TL.Rules.newVan({
-      rng: rng, handSize: CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: run.qn.some(q => q && q.id === 'vua_bai') ? Object.assign({}, b.mods, { passMax: CFG.BAU.VUA_BAI_PASSES }) : b.mods,
+      rng: rng, seats: run.seats === 4 ? 4 : 2, handSize: run.seats === 4 ? CFG.HAND_SIZE_4 : CFG.HAND_SIZE, hands: opts && opts.hands, leader: run.vanUsed > 0 && run.lastWinner !== null ? run.lastWinner : undefined, mods: run.qn.some(q => q && q.id === 'vua_bai') ? Object.assign({}, b.mods, { passMax: CFG.BAU.VUA_BAI_PASSES }) : b.mods,
       scoreFn: (seat, combo, ctx) => S.scorePlay(run, seat, combo, ctx),
     });
     run.van.suc = TL.AI.strength(st.hands[0]); run.van.xau = run.van.suc === 1;
-    st.peek = S.slotOf(run, 'thay_boi') >= 0 ? st.hands[1].slice(-CFG.QN.THAY_BOI_REVEAL) : [];
+    st.peek = S.slotOf(run, 'thay_boi') >= 0 ? [].concat(...st.hands.slice(1).map(h => h.slice(-CFG.QN.THAY_BOI_REVEAL))) : [];
     return st;
   }
 

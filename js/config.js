@@ -10,6 +10,7 @@
 
   const CFG = {
     // ---- rules ----
+    HAND_SIZE_4: 10,      // cards dealt to each seat in a 4-seat ván (D8)
     HAND_SIZE: 10,        // cards dealt to each seat; the other 32 are unused
     CHAT_X: 2,            // pot multiplier on a chat: pot = (pot + chat play total) x CHAT_X
     LEFT_PTS: 10,         // vanBonus Diem per card the loser still holds

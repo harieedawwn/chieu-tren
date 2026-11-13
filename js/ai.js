@@ -3,6 +3,7 @@
  *   TL.AI.choose(view, level 1-3, rng?) -> {type:'play', cardIds} | {type:'pass'}
  *     cardIds always come from view.legal; pass only when view.canPass. Params: CFG.AI[level].
  *     rng is optional: default is a deterministic rng seeded from the view (same view -> same move).
+ *     4 seats: view.seats/counts/passed/oppCount (fewest cards among the others) are read; urgent when any opponent has <= 3 cards; bombs held while the next active seat is nearly out
  *     mods.noHeoFinish: dumps its heo while other cards remain (never holds them), so it is not stuck with a lone heo
  *   TL.AI.strength(hand) -> 1|2|3  Suc bai stars (CFG.SUC_BAI); 1 = Bai xau
  *   TL.AI.plan(hand) -> Combo[]  groups (sanh, đôi thông, tứ quý, sám, đôi, rác) with the fewest groups / least rác
@@ -72,7 +73,11 @@
       return mv(plays.find(c => key(c) === key(pick)) || plays[0]);
     }
 
-    const heavyOK = urgent || v.pot >= P.chatMinPot;
+    let heavyOK = urgent || v.pot >= P.chatMinPot;
+    if (v.seats > 2 && !urgent) {               // 4 seats: do not burn a bomb while the seat after me is nearly out (it would only hand them the lead)
+      const nx = (() => { for (let k = 1; k < v.seats; k++) { const x = (v.seat + k) % v.seats; if (!v.passed[x]) return x; } return v.seat; })();
+      if (nx !== v.seat && v.counts[nx] <= 3 && v.table && v.table.seat !== nx) heavyOK = false;
+    }
     const cand = plays.filter(c => bomb(c) ? heavyOK : hasHeo(c) ? heavyOK || noHeo || rng() >= P.heoHold : true);
     if (!cand.length) return v.canPass ? PASS : mv(plays[0]);
     const after = c => cost(plan(v.hand.filter(x => !c.cards.includes(x))));

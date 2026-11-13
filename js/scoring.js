@@ -153,7 +153,7 @@
     } else if (ev.type === 'vanEnd' && ev.winner === 0) {
       const s = slotOf(run, 'chi_ban_hoa'), n = run.van.heoPlayed || 0;
       if (s >= 0 && n > 0) out.push(lixi(run, s, Q2.BAN_HOA_LIXI * n, 'chi_ban_hoa'));
-      const od = slotOf(run, 'ong_dia'), h = ev.heo ? ev.heo[1] : 0;
+      const od = slotOf(run, 'ong_dia'), h = ev.heo ? ev.heo.slice(1).reduce((x, y) => x + y, 0) : 0;
       if (od >= 0 && h > 0) {
         run.qn[od].n = (run.qn[od].n || 0) + BA.ONG_DIA_THE * h;
         out.push({ kind: 'qn', ref: 'ong_dia', slot: od, the: BA.ONG_DIA_THE * h, label: '+' + BA.ONG_DIA_THE * h + ' ' + T.hud.the });
@@ -167,12 +167,12 @@
       const pen = CFG.THOI_PENALTY * ev.heo[0];
       return { diem: -pen, the: 1, total: -pen, steps: pen ? [{ kind: 'bonus', ref: 'thoi', diem: -pen, label: fill(ev.heo[0] > 1 ? T.stamp.thoiHeoN : T.stamp.thoiHeo, ev.heo[0]) }] : [] };
     }
-    const steps = [], d = ev.left[1] * CFG.LEFT_PTS;
+    const sum = a => a.slice(1).reduce((x, y) => x + y, 0), steps = [], d = sum(ev.left) * CFG.LEFT_PTS;
     let the = 1;
     steps.push({ kind: 'bonus', ref: 'veNhat', diem: d, label: T.stamp.veNhat });
-    const h = ev.heo[1];
+    const h = sum(ev.heo);
     if (h > 0) { the *= Math.pow(CFG.THOI_X, h); steps.push({ kind: 'bonus', ref: 'thoi', xThe: the, label: fill(h > 1 ? T.stamp.thoiHeoN : T.stamp.thoiHeo, h) }); }
-    if (ev.cong) { the *= CFG.CONG_X * (slotOf(run, 'ong_giao') >= 0 ? Q4.ONG_GIAO_X : 1); steps.push({ kind: 'bonus', ref: 'cong', xThe: the, label: T.stamp.cong }); }
+    if (ev.cong) { the *= Math.pow(CFG.CONG_X * (slotOf(run, 'ong_giao') >= 0 ? Q4.ONG_GIAO_X : 1), ev.congN || 1); steps.push({ kind: 'bonus', ref: 'cong', xThe: the, label: T.stamp.cong }); }
     if (ev.toiTrang) { the *= CFG.TOI_TRANG_X; steps.push({ kind: 'bonus', ref: 'toiTrang', xThe: the, label: T.stamp.toiTrang }); }
     return { diem: d, the: the, total: Math.floor(d * the), steps: steps };
   }
