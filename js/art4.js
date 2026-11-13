@@ -1,6 +1,7 @@
 /* js/art4.js  (owner ART) wraps TL.Art after art3.js: R5 step 5, every opponent / boss portrait redrawn on a 32x40 figure grid with ONE shared face
  * (head ellipse, eye / brow / nose / mouth positions are identical, only the expression and the props change), Dong Ho woodblock look:
  * heavy K outline, flat colour, one shade tone per colour (dithered rim on the right), a readable silhouette and a prop per character.
+ * TL.Art._kit4 = { fig head face shade hand cardAt torso sym symSet spark despeckle mir } is the shared drawing kit (art5.js builds Quý nhân / Báu vật on it)
  * API (extends TL.Art; ids not listed keep their older textures)
  *   TL.Art.portrait(id)  ong_tao thim_ut duong_tu ba_noi chu_bay di_nam chu_ba bac_tam anh_re ong_sau co_hai bac_chin di_ut -> canvas 48x48 (figure 32x40 in a lacquer frame, bust cropped by the frame)
  *   TL.Art._ids4 / TL.Art._fig4(id) -> Buf 32x40 (no DOM; _fig4(id)._ok = deliberate single pixels) / TL.Art._buf4(id) -> Buf 48x48, for tests/art.lint.js
@@ -251,6 +252,7 @@
 
   const CACHE = {}, oP = A.portrait;
   A.portrait = function (id) { return BG[id] ? (CACHE[id] || (CACHE[id] = buildPortrait(id).toCanvas())) : oP(id); };
+  A._kit4 = { fig: fig, head: head, face: face, shade: shade, hand: hand, cardAt: cardAt, torso: torso, sym: sym, symSet: symSet, spark: spark, despeckle: despeckle, mir: mir };   // reused by art5.js
   A._ids4 = Object.keys(BG); A._fig4 = buildFig; A._buf4 = buildPortrait;
   const oInit = A.init;
   A.init = function () { return oInit().then(function () { A._ids4.forEach(A.portrait); return true; }); };

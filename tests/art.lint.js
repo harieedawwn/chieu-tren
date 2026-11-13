@@ -2,13 +2,14 @@
 // (no coloured pixel touches transparency, except the bottom row that the frame crops), and there are no stray single pixels
 // (a pixel with no 8-neighbour of its own colour) unless the figure marked it as a deliberate highlight (b._ok).
 globalThis.TL = {};
-['config', 'data', 'content', 'art', 'art2', 'art3', 'art4'].forEach(f => require('../js/' + f + '.js'));
+['config', 'data', 'content', 'art', 'art2', 'art3', 'art4', 'art5'].forEach(f => require('../js/' + f + '.js'));
 const A = TL.Art; let bad = 0;
 const W = 32, H = 40, T = new Set(['.KNRGBPLXY']);
-A._ids4.forEach(function (id) {
-  const b = A._fig4(id), ok = new Set((b._ok || []).map(p => p[0] + ',' + p[1])), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? '.' : b.d[y * W + x];
+const SETS = A._ids4.map(id => [id, A._fig4, A._buf4, 48, 48]).concat(A._ids5.map(id => [id, A._fig5, A._buf5, 48, 64]));
+SETS.forEach(function (st) {
+  const id = st[0], b = st[1](id), ok = new Set((b._ok || []).map(p => p[0] + ',' + p[1])), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? '.' : b.d[y * W + x];
   if (b.w !== W || b.h !== H) { bad++; console.log('SIZE', id, b.w, b.h); return; }
-  const p = A._buf4(id); if (p.w !== 48 || p.h !== 48) { bad++; console.log('PORTRAIT SIZE', id); }
+  const p = st[2](id); if (p.w !== st[3] || p.h !== st[4]) { bad++; console.log('PORTRAIT SIZE', id); }
   let filled = 0;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const c = at(x, y);
@@ -26,4 +27,4 @@ A._ids4.forEach(function (id) {
   }
   if (filled < 400) { bad++; console.log('TOO EMPTY', id, filled); }
 });
-console.log(A._ids4.length + ' portraits linted, ' + bad + ' problems'); process.exit(bad ? 1 : 0);
+console.log(SETS.length + ' portraits linted, ' + bad + ' problems'); process.exit(bad ? 1 : 0);
