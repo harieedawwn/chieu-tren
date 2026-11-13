@@ -121,6 +121,7 @@
     BG: { lowW: 200, bayer: 4, swirl: 0.15, scanAlpha: 0.12, scanGap: 3 }, // low-res width px, Bayer matrix size, swirl speed, scanline alpha, scanline spacing px
     LAYOUT: {
       portraitBelow: 1.0, // w/h below this = portrait layout
+      shortBelow: 500, shortPanelFrac: 0.22, // landscape and h < shortBelow: phone layout (slim panel, button column)
       panelFrac: 0.24,    // landscape left panel width / w
       cardHFrac: 0.26,    // card height / h; Game.scale = max(1, floor(cardHFrac x h x dpr / 64))
       handOverlap: 0.45,  // fraction of card width hidden by the next card in the hand fan

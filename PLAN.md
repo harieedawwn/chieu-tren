@@ -1,6 +1,6 @@
 # PLAN — vòng nâng cấp (đọc đầu mỗi phiên; làm từ ô chưa tick đầu tiên; thiết kế ở DESIGN.md)
 - [x] 1 Fixes: heo-chặt fuzz test, boss rule card, fullscreen + PWA (D1)
-- [ ] 2 Landscape-phone layout and size hierarchy (D2)
+- [x] 2 Landscape-phone layout and size hierarchy (D2)
 - [ ] 3 Bad hands: Lượt đổi and Sức bài (D3)
 - [ ] 4 Content: 8 Quý nhân, 5 Báu vật with aura, js/art3.js (D4)
 - [ ] 5 Feel: Khí thế, winning finale, louder layered sounds, special palettes (D5)
@@ -10,7 +10,7 @@
 - [ ] 9 4-player table UI, Sòng Giao thừa, Sòng bốn mode (D9)
 - [ ] 10 Balance sim, full checks, README, live check (D10)
 
-Next: Bước 2 (D2 điện thoại ngang). Ghi chú bước 1: fuzz test không tìm thấy bug engine (nguyên nhân gần như chắc chắn là luật Chú Ba hiện quá nhanh) nên đã làm thẻ luật + chip; js/pwa.js, sw.js (sinh bằng tools/build-pwa.js), tools/make-icons.js, tests/chat.fuzz.js, tests/pwa.check.js.
+Next: Bước 3 (D3 Lượt đổi và Sức bài). Ghi chú bước 2: HUD.layout nhánh `short` (h < CFG.LAYOUT.shortBelow=500): cột trái 22%, cột nút dọc bên phải (Đánh to nhất), bài tay scale x2. headless.js seed 1 cần CAP=580000 trên máy chậm (baseline cũng vậy).
 
 ## Session protocol
 - Start: read PLAN.md, the DESIGN.md sections for the first unticked step, SPEC.md Glossary, and only the API headers (top comments) of files you need; grep instead of reading whole files.

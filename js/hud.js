@@ -76,13 +76,16 @@
   }
 
   function layoutLandscape(w, h, X0, Y0, W, H, gap) {
-    const L = CFG.LAYOUT;
-    const pw = Math.round(clamp(w * L.panelFrac, 196, 460));
+    const L = CFG.LAYOUT; let btnS = null;
+    const short = h < L.shortBelow;   // landscape phone: slim left column, one vertical button column on the right edge
+    const pw = Math.round(short ? clamp(w * L.shortPanelFrac, 168, 230) : clamp(w * L.panelFrac, 196, 460));
     const panel = R(X0, Y0, pw, H);
-    const ax = X0 + pw + gap, aW = X0 + W - ax;
-    const btnW = Math.round(clamp(aW * 0.3, 148, 340));
-    const handW = aW - btnW - gap;
+    const ax = X0 + pw + gap; let aW = X0 + W - ax;
+    const btnW = short ? Math.round(clamp(aW * 0.17, 92, 150)) : Math.round(clamp(aW * 0.3, 148, 340));
+    if (short) aW -= btnW + gap;
+    const handW = short ? aW : aW - btnW - gap;
     let cardH = Math.round(clamp(h * L.cardHFrac, 56, 300));
+    if (short) cardH = Math.max(cardH, 128);   // aim for the x2 art scale (a 64-px card drawn at 2x)
     cardH = Math.min(cardH, Math.floor(((handW / 4.6) * 64) / 48));
     let slotH = Math.min(Math.round(H * 0.2), Math.round(cardH * (cardH <= 120 ? 0.85 : 0.62)));
     slotH = Math.max(slotH, 44);
@@ -97,7 +100,12 @@
     const handY = Y0 + H - bandH;
     const hand = R(ax, handY + (bandH - handHof(cardH)), handW, handHof(cardH));
     // buttons: top row Danh | Bo luot, bottom row Goi y | Xep, bottom-aligned with the band
-    const bx = X0 + W - btnW, r2 = clamp(Math.round(bandH * 0.4), 48, 76), r1 = clamp(bandH - r2 - 6, 52, 100), bg = 6, hw = Math.floor((btnW - bg) / 2);
+    const bx = X0 + W - btnW;
+    if (short) {   // Danh biggest on top, then Bo luot, Goi y, Xep; the column spans the full height beside hand and table
+      const sg4 = 5, rs = Math.floor((H - 3 * sg4) / 5.2), rD = H - 3 * (rs + sg4);
+      btnS = { danh: R(bx, Y0, btnW, rD), bo: R(bx, Y0 + rD + sg4, btnW, rs), goiy: R(bx, Y0 + rD + rs + 2 * sg4, btnW, rs), xep: R(bx, Y0 + rD + 2 * rs + 3 * sg4, btnW, rs) };
+    }
+    const r2 = clamp(Math.round(bandH * 0.4), 48, 76), r1 = clamp(bandH - r2 - 6, 52, 100), bg = 6, hw = Math.floor((btnW - bg) / 2);
     const by2 = Y0 + H - r2, by1 = by2 - bg - r1;
     const qn = qnGeometry(ax, Y0, slotH, qg);
     const oppSeat = R(ax + qn.row.w + gap, Y0, aW - qn.row.w - gap, topH);
@@ -132,7 +140,7 @@
     return {
       mode: 'landscape', panel: panel, qnRow: qn.row, qnSlot: qn.slots, oppSeat: oppSeat, oppPlate: og.plate, oppHand: og.oppHand, deck: deck, deckCol: deckCol, table: table, tablePlay: sg.tablePlay,
       pot: sg.pot, ribbon: sg.ribbon, comboBox: comboBox, diemBox: diemBox, theBox: theBox, dbBox: info.dbBox, hand: hand,
-      btn: { danh: R(bx, by1, hw, r1), bo: R(bx + hw + bg, by1, btnW - hw - bg, r1), goiy: R(bx, by2, hw, r2), xep: R(bx + hw + bg, by2, btnW - hw - bg, r2), menu: menu },
+      btn: btnS ? Object.assign(btnS, { menu: menu }) : { danh: R(bx, by1, hw, r1), bo: R(bx + hw + bg, by1, btnW - hw - bg, r1), goiy: R(bx, by2, hw, r2), xep: R(bx + hw + bg, by2, btnW - hw - bg, r2), menu: menu },
       cardH: cardH, tableCardH: sg.tableCardH, compact: sg.compact, oppCardH: og.oppCardH, qnH: slotH, ui: clamp(cardH / 96, 1, 2.2), info: info, plateW: og.plateW, caption: CAP,
     };
   }
