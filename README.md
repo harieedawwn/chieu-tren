@@ -63,6 +63,8 @@ Mùng Một chưa tới mà nhà nào cũng đã trải chiếu. Bạn ngồi xu
 
 Lần đầu bấm **Chơi mới**, Ông Táo hiện ra dạy một ván có sẵn bài: chọn đôi, xem Điểm × Nhân, đè hay buông, chặt heo, ăn hũ. Bỏ qua được bất cứ lúc nào; xem lại trong **Cài đặt → Hướng dẫn**.
 
+**Luật bài** (Cài đặt → Luật bài: Xem) là sách luật 9 trang vẽ bằng lá bài thật: thứ tự, chất, bộ cùng số, sảnh, đôi thông, đè, chặt heo, ăn hũ, thối heo / cóng / tới trắng. Mỗi trang có phần **thử** để chạm vào lá hoặc bộ bài.
+
 ## Ăn hũ
 
 - Một **ván** chia mỗi bên 10 lá. Hũ kéo dài đến khi có người bỏ lượt; người đánh cuối cùng **ăn hũ**.
@@ -169,7 +171,13 @@ Nút **Sổ tay** ở màn chính ghi lại mọi Quý nhân, Quẻ, Sao và Lu�
 | Xem mô tả Quý nhân, Quẻ | Rê chuột / click | Chạm vào ô |
 | Chợ Tết: chọn thẻ, mua / bán / dùng, đi tiếp | Click, `←` `→`, `Enter`, `Space` | Chạm |
 
-**Cài đặt:** âm thanh, tốc độ 1× / 2× / 3×, scanlines, giảm chuyển động (tự bật theo thiết lập hệ thống).
+**Cài đặt:** âm thanh, tốc độ 1× / 2× / 3×, scanlines, giảm chuyển động (tự bật theo thiết lập hệ thống), xếp bài, **Hiệu năng** (Tự động / Cao / Tiết kiệm), Luật bài.
+
+Chạm màn hình một lần để tua nhanh hoạt ảnh đang chạy, chạm lần hai để nhảy tới kết quả.
+
+## Hiệu năng và cài đặt
+
+Chạy tốt trên điện thoại ngang siêu rộng (20:9) lẫn dọc: bố cục tự co theo từng cỡ màn hình và tôn trọng tai thỏ. Chất lượng hình tự hạ khi máy giật (thêm `?perf` vào URL để xem fps). Có thể cài như ứng dụng (PWA) và chơi không cần mạng.
 
 ## Chạy tại máy
 
@@ -181,6 +189,8 @@ node tests/rules2.test.js  # luật nhà mới, đổi bài, soi bài
 node tests/qn.test.js      # Quý nhân mới
 node tests/que.test.js     # Quẻ, chợ, Bao lì xì, vô tận, lưu game
 node tests/run.test.js     # chuyến đi, chợ, lưu game
+node tests/perf.js         # ngân sách khung hình (Chromium, giả lập CPU chậm 6×)
+node tools/build-pwa.js    # sinh lại sw.js sau khi sửa file game
 node tests/sim.js 300      # mô phỏng 300 chuyến (bàn trùm ngẫu nhiên, vô tận)
 node tests/sim.js 300 1 6 full mac_dinh 2 bau   # [chuyến] [seed] [Chiếu] [empty|full cây] [Khởi đầu] [ghế 2|4] [bau = bắt đầu có Báu vật]
 # thêm vào URL:  ?auto&seed=1   (máy tự chơi hết một chuyến)   ?seed=7 (cố định bài)   ?auto&endless (tự chơi chặng vô tận)
