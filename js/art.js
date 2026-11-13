@@ -772,7 +772,7 @@
   const TC = new Map();
   // line box: top at y, baseline at y + 0.95 size; outline ow css px; every layer thresholded so no anti-aliased edge survives
   function textBitmap(str, size, color, outline, shadow, s) {
-    const key = [str, size, color, outline, shadow, s, fontReady ? 1 : 0].join('|');
+    const key = str + '|' + size + '|' + color + '|' + outline + '|' + shadow + '|' + s + (fontReady ? '|1' : '|0');
     let t = TC.get(key); if (t) return t;
     const ow = outline === false ? 0 : 2, sh = shadow === false ? 0 : 2;
     const px = Math.round(size * s), bw = Math.max(1, Math.round(px / 24));
@@ -807,7 +807,7 @@
     }
     cx.putImageData(im, 0, 0);
     t = { cv: cv, pad: pad, top: top };
-    if (TC.size > 500) TC.clear();
+    if (TC.size > 1200) { let n = 0; for (const k of TC.keys()) { TC.delete(k); if (++n > 400) break; } }   // drop the oldest third, not everything
     TC.set(key, t);
     return t;
   }
@@ -846,9 +846,11 @@
     o = o || {};
     dev(ctx, function (s, q) {
       const x = q(rect.x), y = q(rect.y), w = q(rect.w), h = q(rect.h), r = q(o.radius === undefined ? 4 : o.radius), l = q(2);
-      ctx.fillStyle = PALN.nauCanhGian; roundRect(ctx, x, y, w, h, r);                   // lip catching light on the bottom/right
-      ctx.fillStyle = '#0B0807'; roundRect(ctx, x, y, w - l, h - l, r);                   // cavity
-      ctx.fillStyle = PALN.denSon; roundRect(ctx, x + l, y + l, w - 2 * l, h - 2 * l, Math.max(1, r - l)); // floor, leaving a dark top/left wall
+      blit(ctx, 'slot|' + [w, h, r, l].join(), x, y, w, h, function (c) {
+        c.fillStyle = PALN.nauCanhGian; roundRect(c, 0, 0, w, h, r);                   // lip catching light on the bottom/right
+        c.fillStyle = '#0B0807'; roundRect(c, 0, 0, w - l, h - l, r);                   // cavity
+        c.fillStyle = PALN.denSon; roundRect(c, l, l, w - 2 * l, h - 2 * l, Math.max(1, r - l)); // floor, leaving a dark top/left wall
+      });
     });
   }
 
@@ -858,6 +860,18 @@
     ctx.save(); ctx.setTransform(1, 0, 0, 1, Math.round(t.e), Math.round(t.f)); ctx.imageSmoothingEnabled = false;
     fn(s, function (v) { return Math.round(v * s); });
     ctx.restore();
+  }
+  // static shapes (panels, slots, button faces) are rendered once per size/colour into an offscreen canvas and blitted
+  const SC = new Map();
+  function blit(ctx, key, x, y, w, h, draw) {
+    let cv = SC.get(key);
+    if (!cv) {
+      cv = document.createElement('canvas'); cv.width = Math.max(1, w); cv.height = Math.max(1, h);
+      const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; draw(c);
+      if (SC.size > 400) SC.clear();
+      SC.set(key, cv);
+    }
+    ctx.drawImage(cv, x, y);
   }
   function roundRect(ctx, x, y, w, h, r) {
     r = Math.max(0, Math.min(r, Math.floor(Math.min(w, h) / 2)));
@@ -872,9 +886,12 @@
     const fill = o.fill || PALN.nauCanhGian, border = o.border === undefined ? PALN.vangKim : o.border, shadow = o.shadow === undefined ? PALN.denSon : o.shadow;
     dev(ctx, function (s, q) {
       const x = q(rect.x), y = q(rect.y), w = q(rect.w), h = q(rect.h), r = q(o.radius === undefined ? 5 : o.radius), bw = border ? q(o.bw || 2) : 0, so = q(o.shadowY != null ? o.shadowY : 4);
-      if (shadow) { ctx.fillStyle = shadow; roundRect(ctx, x, y + so, w, h, r); }
-      if (border) { ctx.fillStyle = border; roundRect(ctx, x, y, w, h, r); }
-      ctx.fillStyle = fill; roundRect(ctx, x + bw, y + bw, w - 2 * bw, h - 2 * bw, Math.max(1, r - bw));
+      const sh = shadow ? Math.max(0, so) : 0;
+      blit(ctx, 'pan|' + [w, h, r, bw, so, fill, border, shadow].join(), x, y, w, h + sh, function (c) {
+        if (shadow) { c.fillStyle = shadow; roundRect(c, 0, so, w, h, r); }
+        if (border) { c.fillStyle = border; roundRect(c, 0, 0, w, h, r); }
+        c.fillStyle = fill; roundRect(c, bw, bw, w - 2 * bw, h - 2 * bw, Math.max(1, r - bw));
+      });
     });
   }
   function button(ctx, rect, label, state, o) {   // o.face: idle face colour (default đỏ son)
@@ -884,10 +901,12 @@
     const faceH = rect.h - depth, dy = state === 'down' ? press : state === 'hover' ? 0 : 1;
     dev(ctx, function (s, q) {
       const x = q(rect.x), y = q(rect.y), w = q(rect.w), fh = q(faceH), d = q(depth), r = q(4), f = q(2);
-      ctx.fillStyle = PALN.denSon; roundRect(ctx, x, y + d, w, fh, r);
-      const fy = y + q(dy);
-      ctx.fillStyle = PALN.denSon; roundRect(ctx, x, fy, w, fh, r);
-      ctx.fillStyle = face; roundRect(ctx, x + f, fy + f, w - 2 * f, fh - 2 * f, Math.max(1, r - f));
+      const qd = q(dy);
+      blit(ctx, 'btn|' + [w, fh, d, r, f, qd, face].join(), x, y, w, fh + d + qd, function (c) {
+        c.fillStyle = PALN.denSon; roundRect(c, 0, d, w, fh, r);
+        c.fillStyle = PALN.denSon; roundRect(c, 0, qd, w, fh, r);
+        c.fillStyle = face; roundRect(c, f, qd + f, w - 2 * f, fh - 2 * f, Math.max(1, r - f));
+      });
     });
     const size = Math.max(10, Math.min(Math.round(faceH * 0.55), 28));
     let sz = size; while (sz > 9 && textWidth(label, sz) > rect.w - 14) sz--;
@@ -918,6 +937,6 @@
     sao: function (id) { return memo('s' + id, function () { return buildSao(id); }); },
     portrait: function (id) { return memo('p' + id, function () { return buildPortrait(id); }); },
     icon: function (name) { return memo('i' + name, function () { return buildIcon(name); }); },
-    resetText: function () { TC.clear(); WC.clear(); MC.clear(); }, text: text, textC: textC, measure: measure, badge: badge, badgeSize: badgeSize, slot: slot, textWidth: textWidth, panel: panel, button: button,
+    resetText: function () { TC.clear(); SC.clear(); WC.clear(); MC.clear(); }, text: text, textC: textC, measure: measure, badge: badge, badgeSize: badgeSize, slot: slot, textWidth: textWidth, panel: panel, button: button,
   };
 })(globalThis.TL = globalThis.TL || {});

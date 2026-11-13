@@ -23,7 +23,7 @@
   'use strict';
   const CFG = TL.CFG, M = CFG.MOTION, PAL = CFG.PAL;
   const TAU = Math.PI * 2;
-  const FX = { speed: 1, reducedMotion: false, offset: { x: 0, y: 0 }, time: 0, view: null, pixel: 3, textScale: 1, khi: 0, timeScale: 1, zoom: 1, freeze: 0 };
+  const FX = { speed: 1, reducedMotion: false, offset: { x: 0, y: 0 }, time: 0, view: null, pixel: 3, textScale: 1, khi: 0, quality: 0, timeScale: 1, zoom: 1, freeze: 0 };
   const KH = () => TL.CFG.KHI;
   const sp = () => (FX.speed > 0 ? FX.speed : 1) * (FX.timeScale > 0 ? FX.timeScale : 1);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -296,7 +296,7 @@
     if (FX.reducedMotion || !(px > 0)) return;
     const lv = clamp(FX.khi | 0, 0, KH().MAX), cap = lv > 0 ? KH().SHAKE_CAP : M.shake.max;
     px *= KH().shake[lv];
-    amp = Math.min(cap, Math.max(amp, px) + 0.3 * Math.min(amp, px));
+    amp = Math.min(cap, Math.max(amp, px) + 0.3 * Math.min(amp, px)) * (FX.quality === 2 ? 0.6 : 1);
   }
   const shakeFor = (score) => Math.min(M.shake.max, M.shake.perLog * Math.log(1 + Math.max(0, score) / M.shake.ref));
   const stepGap = (n) => clamp(M.play.step * Math.min(1, 5 / Math.max(1, n)), M.play.stepMin, M.play.step);
@@ -304,11 +304,12 @@
 
   // ---------- particles ----------
   let conf = [], fl = [];
+  const capOf = (k) => (TL.Perf ? TL.Perf.particleCap(k) : (k === 'confetti' ? 500 : 400));
   const emitters = new Map();
   function confetti(x, y, n) {
     n = n == null ? M.confetti.n : n;
     const ps = artPx();
-    for (let i = 0; i < n && conf.length < 500; i++) {
+    for (let i = 0; i < n && conf.length < capOf('confetti'); i++) {
       const a = (-90 + rnd(-70, 70)) * Math.PI / 180, v = rnd(260, 640);
       conf.push({
         x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd(0, TAU), vr: rnd(-6, 6),
@@ -333,7 +334,7 @@
     conf = conf.filter((c) => c.age < c.life);
     for (const e of emitters.values()) {
       e.acc += F.rate * clamp(e.r.w / 80, 1, 3) * sdt;
-      while (e.acc >= 1 && fl.length < 400) {
+      while (e.acc >= 1 && fl.length < capOf('flame')) {
         e.acc -= 1;
         fl.push({ x: e.r.x + Math.random() * e.r.w, y: e.r.y + artPx(), vx: rnd(-8, 8), vy: -F.rise * rnd(0.7, 1.3), age: 0, life: F.life * rnd(0.7, 1.2) });
       }
@@ -343,6 +344,7 @@
     fl = fl.filter((p) => p.age < p.life);
   }
   function drawParticles(ctx) {
+    if (TL.Perf) TL.Perf.count(conf.length + fl.length);
     const ps = artPx(), F = M.flame;
     for (const p of fl) {
       const f = p.age / p.life, s = Math.max(1, Math.round(F.size * (1 - 0.5 * f))) * ps;

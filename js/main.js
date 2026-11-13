@@ -13,7 +13,7 @@
   const q = new URLSearchParams(location.search);
   const Game = TL.Game = {
     ctx: null, w: 640, h: 360, dpr: 1, scale: 2, safe: { t: 0, r: 0, b: 0, l: 0 }, run: null, screen: null, overlay: null, name: '', autoResult: null,
-    settings: { sound: true, speed: 1, scanlines: false, reducedMotion: false, sort: 'rank' }, paused: false, flags: { hud: q.has('hud'), auto: q.has('auto'), endless: q.has('endless'), seed: q.has('seed') ? +q.get('seed') : null },
+    settings: { sound: true, speed: 1, scanlines: false, reducedMotion: false, sort: 'rank', perf: 'auto' }, paused: false, flags: { hud: q.has('hud'), auto: q.has('auto'), endless: q.has('endless'), seed: q.has('seed') ? +q.get('seed') : null },
   };
   const guard = (fn, label) => (window.Boot ? Boot.guard(fn, label) : fn);
 
@@ -31,7 +31,7 @@
 
   // ---------------------------------------------------------------- settings
   function loadSettings() {
-    const d = { sound: true, speed: 1, scanlines: false, reducedMotion: false, sort: 'rank' };
+    const d = { sound: true, speed: 1, scanlines: false, reducedMotion: false, sort: 'rank', perf: 'auto' };
     try { d.reducedMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
     let o = null;
     try { o = JSON.parse(localStorage.getItem(CFG.STORAGE.settings)); } catch (e) { o = null; }
@@ -41,6 +41,7 @@
       if (typeof o.scanlines === 'boolean') d.scanlines = o.scanlines;
       if (typeof o.reducedMotion === 'boolean') d.reducedMotion = o.reducedMotion;
       if (o.sort === 'rank' || o.sort === 'suit') d.sort = o.sort;
+      if (o.perf === 'auto' || o.perf === 'high' || o.perf === 'low') d.perf = o.perf;
     }
     Game.settings = d;
   }
@@ -50,6 +51,7 @@
     if (TL.Audio && TL.Audio.setMuted) TL.Audio.setMuted(!s.sound || Game.paused);
     if (TL.FX) { TL.FX.speed = Game.flags.auto ? CFG.AUTO_SPEED : s.speed; TL.FX.reducedMotion = s.reducedMotion; }
     if (TL.BG && TL.BG.crt) TL.BG.crt(s.scanlines);
+    if (TL.Perf) TL.Perf.setMode(s.perf);
   };
 
   // ---------------------------------------------------------------- canvas sizing
@@ -58,9 +60,10 @@
     const cs = getComputedStyle(document.documentElement), v = n => parseFloat(cs.getPropertyValue(n)) || 0;
     Game.safe = { t: v('--sat'), r: v('--sar'), b: v('--sab'), l: v('--sal') };
   }
+  Game.requestResize = function () { lastSize = ''; };
   function resize() {
     const r = app.getBoundingClientRect(), w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
-    const dpr = Math.min(window.devicePixelRatio || 1, 3), key = w + 'x' + h + 'x' + dpr;
+    const dpr = Math.min(window.devicePixelRatio || 1, TL.Perf ? TL.Perf.dprCap() : 2), key = w + 'x' + h + 'x' + dpr;
     if (key === lastSize) return;
     lastSize = key; readSafe();
     Game.w = w; Game.h = h; Game.dpr = dpr;
@@ -131,6 +134,8 @@
   // ---------------------------------------------------------------- loop
   let clock = 0;
   const frame = guard(function (dt) {
+    const t0 = performance.now();
+    if (TL.Perf) TL.Perf.sample(dt);
     dt = Math.min(dt, 1 / 20); clock += dt;
     resize();
     const FX = TL.FX;
@@ -138,7 +143,7 @@
     if (TL.Trans) TL.Trans.update(dt);
     if (Game.screen && Game.screen.update && !Game.overlay) Game.screen.update(dt);
     if (Game.overlay && Game.overlay.update) Game.overlay.update(dt);
-    if (TL.BG) TL.BG.render(clock);
+    if (TL.BG && !(FX && FX.zoom !== 1)) TL.BG.render(clock);   // background pauses while the finale zooms
     ctx.setTransform(Game.dpr, 0, 0, Game.dpr, 0, 0); ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, Game.w, Game.h);
     ctx.save();
@@ -149,7 +154,9 @@
     if (FX) FX.draw(ctx);
     ctx.restore();
     if (TL.Trans) TL.Trans.draw(ctx);
+    if (TL.Perf && TL.Perf.on) TL.Perf.draw(ctx, Game.w, Game.h);
     if (TL.Tutorial && TL.Tutorial.on()) TL.Tutorial.draw(ctx, dt);
+    if (TL.Perf) TL.Perf.work(performance.now() - t0);
     const l = $('#loading'); if (l && !l.hidden) l.hidden = true;
   }, 'frame');
 
@@ -159,6 +166,7 @@
   function start() {
     app = $('#app'); canvas = $('#game'); ctx = Game.ctx = canvas.getContext('2d');
     loadSettings();
+    if (TL.Perf) TL.Perf.on = q.has('perf');
     const bg = $('#bg');
     if (TL.BG && bg) { try { TL.BG.init(bg); } catch (e) { fatal(e); return; } }
     bindInput();

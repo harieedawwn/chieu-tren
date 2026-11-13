@@ -145,7 +145,7 @@
     if (cw === S.cssW && ch === S.cssH && dpr === S.dpr) return false;
     S.cssW = cw; S.cssH = ch; S.dpr = dpr;
     var devW = Math.max(1, Math.round(cw * dpr)), devH = Math.max(1, Math.round(ch * dpr));
-    var ps = Math.max(4, Math.ceil(devW / 360));          // integer device px per bg pixel: about 1/4 resolution, at most 360 wide
+    var ps = Math.max(4, Math.ceil(devW / [360, 270, 200][S.qual || 0]));          // integer device px per bg pixel: about 1/4 resolution, at most 360 wide
     var w = Math.max(1, Math.ceil(devW / ps)), h = Math.max(1, Math.ceil(devH / ps));
     if (w !== cv.width || h !== cv.height) { cv.width = w; cv.height = h; }
     S.lowW = w; S.lowH = h; S.field = null; S.dirty = true;
@@ -184,6 +184,7 @@
     if (doc && doc.hidden) { S.lastT = null; return; }             // tab hidden: draw nothing, no time jump on return
     var dt = S.lastT == null ? 0 : Math.max(0, Math.min(0.1, t - S.lastT));
     S.lastT = t;
+    if (S.mode === 'gl' && !S.dirty) { S.acc = (S.acc || 0) + dt; if (S.acc < 1 / 30 - 0.002) return; dt = S.acc; S.acc = 0; }   // 30 fps flow is enough for a slow swirl
     sizeCheck();
     var m = (cfg().MOTION || {}).bg || { decay: 1.8, base: 1 };
     // ease mood (about 1 s, smoothstep)
@@ -210,7 +211,7 @@
       gl.uniform3f(S.loc.uC1, c.c[1][0], c.c[1][1], c.c[1][2]);
       gl.uniform3f(S.loc.uC2, c.c[2][0], c.c[2][1], c.c[2][2]);
       gl.uniform2f(S.loc.uThr, c.thr[0], c.thr[1]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.drawArrays(gl.TRIANGLES, 0, 3); S.dirty = false;
     } else if (changed || S.dirty) {
       draw2d(); S.dirty = false;
     }
@@ -243,5 +244,6 @@
     S.crtEl.style.display = S.crtOn ? 'block' : 'none';
   }
 
-  TL.BG = { init: init, setMood: setMood, setKhi: setKhi, pulse: pulse, crt: crt, render: render };
+  function setQuality(q) { q = q | 0; if (q === S.qual) return; S.qual = q; S.cssW = 0; }   // next sizeCheck rebuilds the low-res buffer
+  TL.BG = { setQuality: setQuality, init: init, setMood: setMood, setKhi: setKhi, pulse: pulse, crt: crt, render: render };
 })(globalThis.TL = globalThis.TL || {});
