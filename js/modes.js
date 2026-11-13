@@ -184,7 +184,7 @@
         const b = BR.indexOf(n.br), q = pos[n.id], lanes = pos['_' + n.br], lw = (bw - 8) / lanes;
         nodes[n.id] = { x: Math.round(X0 + b * bw + 4 + lw * (q.lane + 0.5)), y: Math.round(tree0.y + tree0.h - nr - q.depth * ((tree0.h - nr * 2) / (maxD - 1))), r: nr };
       });
-      const panel = { x: X0, y: Y1 - pH, w: W, h: pH }, pb = { x: panel.x + panel.w - 118, y: panel.y + panel.h - 46, w: 108, h: 38 };
+      const panel = { x: X0, y: Y1 - pH, w: W, h: pH }, pb = { x: panel.x + panel.w - 118, y: panel.y + panel.h - (short ? 40 : 46), w: 108, h: short ? 34 : 38 };
       L = { u: u, tree: tree0, nodes: nodes, bw: bw, X0: X0, panel: panel, pb: pb, short: short };
       btns.list = sel ? [{ id: 'buy', label: MT.mai.buy, r: pb, on: TL.Profile.canBuy(P(), sel).ok }] : [];
     }
@@ -224,8 +224,9 @@
       const P_ = L.panel; A.panel(ctx, P_, { fill: PAL.nauCanhGian, border: PAL.vangKim, radius: 5 });
       if (sel) {
         const n = byId(sel), nm = MM.nodes[sel], cb = TL.Profile.canBuy(p, sel), own = !!p.nodes[sel];
-        txt(ctx, nm[0], P_.x + 12, P_.y + 8, Math.round(u * 1.5), PAL.vangKim, 'left');
-        lines(ctx, nm[1], { x: P_.x + 12 + (P_.w - 140) / 2, y: P_.y + 8 + Math.round(u * 1.9), w: P_.w - 150 }, Math.round(u * 1.05), PAL.giayDo, 2);
+        const tx = P_.x + 12, tw = Math.max(60, L.pb.x - 14 - tx), ds = Math.round(u * 1.05), dy = P_.y + 8 + Math.round(u * 1.9);   // text zone ends left of the Mua column: description, price and button never overlap
+        txt(ctx, nm[0], tx, P_.y + 8, fit(nm[0], Math.round(u * 1.5), tw, 9), PAL.vangKim, 'left');
+        lines(ctx, nm[1], { x: tx, y: dy, w: tw }, ds, PAL.giayDo, Math.max(1, Math.floor((P_.y + P_.h - 6 - dy) / Math.round(ds * 1.15))));
         const st = own ? MT.mai.owned : cb.ok ? MT.mai.cost.replace('%d', n.cost) : cb.why === 'req' ? MT.mai.need : MT.mai.poor;
         txt(ctx, st, P_.x + P_.w - 14, P_.y + 8, Math.round(u * 1.1), cb.ok ? PAL.laXanh : PAL.giayDo, 'right');
         if (!own) btns.draw(ctx);

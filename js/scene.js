@@ -391,6 +391,7 @@
     const inB = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
     if (fin && fin.t > 0.2 && fin.t < CFG.FINALE.HOLD + 0.6 && e.type === 'down' && !fin.skip && !fin.slow) { fin.skip = true; FX.skipFinale(); return; }
     if (rcard) { if (e.type === 'down' && rcard.t >= 1.2) closeRule(); return; }
+    if (e.type === 'down' && !dead && skipOK() && FX.skipTap()) return;   // tap = fast-forward, second tap = end state
     if (pay) { if (e.type === 'down' && pay.done && inB(payBtn(), e.x, e.y)) leave(); return; }
     if (e.type === 'down' && info.rule && !dead && !Game().overlay && inB(four() ? r.chips[0] : r.oppPlate, e.x, e.y) && !slotAt(e.x, e.y)) { openRule(true); return; }
     if (e.type === 'down' && qtip != null && qbtn && e.x >= qbtn.x && e.x <= qbtn.x + qbtn.w && e.y >= qbtn.y && e.y <= qbtn.y + qbtn.h) { qdown = true; snd('button'); return; }
@@ -409,8 +410,10 @@
       const id = TL.HUD.hit(r, e.x, e.y); if (downBtn && id === downBtn) act(downBtn); downBtn = null;
     }
   }
+  const skipOK = () => (pay ? !pay.done : !ready && !(TL.Tutorial && TL.Tutorial.on()));
   function key_(e) {
     if (rcard) { if (rcard.t >= 1.2) closeRule(); return; }
+    if ((e.key === 'enter' || e.key === 'space') && !dead && skipOK() && FX.skipTap()) return;
     if (pay) { if (pay.done && (e.key === 'enter' || e.key === 'space')) leave(); return; }
     if (e.key === 'esc') return Game().setScreen('settings');
     if (e.key === 's') { if (hand && !Game().overlay) xep(); return; }   // Xếp bài: the button moved into Menu, the key stays

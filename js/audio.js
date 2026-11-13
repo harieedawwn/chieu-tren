@@ -403,7 +403,7 @@
     play: function (name, o) {
       var r = R[name];
       if (!r) { if (root.console) console.warn('Audio: unknown cue ' + name); return null; }
-      if (!ctx || muted || ctx.state !== 'running') return null;
+      if (!ctx || muted || ctx.state !== 'running' || (TL.FX && TL.FX.flushing)) return null;
       return playOn(g, voices, name, r, o || {}, ctx.currentTime + 0.005);
     },
     setMuted: function (b) { muted = !!b; applyVol(); },

@@ -68,7 +68,7 @@
     lastSize = key; readSafe();
     Game.w = w; Game.h = h; Game.dpr = dpr;
     canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
-    if (TL.HUD) Game.scale = TL.HUD.scaleFor(TL.HUD.layout(w, h, Game.safe).cardH, dpr);
+    if (TL.HUD) { const ch = TL.HUD.layout(w, h, Game.safe).cardH; Game.scale = TL.HUD.scaleFor(ch, dpr); if (TL.FX) TL.FX.cardH = ch; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
     if (TL.FX) TL.FX.view = { w: w, h: h };
     if (Game.screen && Game.screen.resize) Game.screen.resize(w, h);

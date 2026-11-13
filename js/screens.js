@@ -462,6 +462,7 @@
       if (e.type === 'move') menuHov = inR(menuRect(), e.x, e.y);
       if (e.type === 'down' && inR(menuRect(), e.x, e.y)) { menuDown = true; snd('button'); return; }
       if (e.type === 'up' && menuDown) { menuDown = false; if (inR(menuRect(), e.x, e.y)) G().setScreen('settings'); return; }
+      if (e.type === 'down' && !btns.list.some(b => inR(b.r, e.x, e.y)) && FX.skipTap()) return;   // tap = fast-forward bonus/XP count
       btns.pointer(e, act);
     }
     function key_(e) { if (e.key === 'enter' || e.key === 'space') act(run && run.daily ? 'title' : 'again'); else if (e.key === 'esc') G().setScreen('settings'); }

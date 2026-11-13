@@ -390,6 +390,7 @@
     }
     if (e.type === 'down') {
       if (inR(L.menu, e.x, e.y)) { menuDown = true; snd('button'); return; }
+      if (pk && pk.phase !== 'pick' && TL.FX.skipTap()) return;   // pack opening: tap fast-forwards
       if (btns.pointer(e)) return;
       if (pk) { if (pk.phase === 'pick') { const s = SP.pick(pk.cards, e.x, e.y); if (s) { const k = pk.cards.indexOf(s); if (pk.sel === k) chooseCard(); else selectCard(k); } } return; }
       const p = pick(e.x, e.y);
@@ -405,7 +406,7 @@
   function key_(e) {
     if (e.key === 'esc') return G().setScreen('settings');
     if (pk) {
-      if (pk.phase !== 'pick') return;
+      if (pk.phase !== 'pick') { if (e.key === 'enter' || e.key === 'space') TL.FX.skipTap(); return; }
       if (e.key === 'left' || e.key === 'right') { const n = pk.cards.length, k = pk.sel == null ? (e.key === 'right' ? 0 : n - 1) : (pk.sel + (e.key === 'right' ? 1 : n - 1)) % n; selectCard(k); }
       else if (e.key === 'enter') chooseCard(); else if (e.key === 'space') skipPack();
       return;

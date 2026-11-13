@@ -23,7 +23,7 @@
   'use strict';
   const CFG = TL.CFG, M = CFG.MOTION, PAL = CFG.PAL;
   const TAU = Math.PI * 2;
-  const FX = { speed: 1, reducedMotion: false, offset: { x: 0, y: 0 }, time: 0, view: null, pixel: 3, textScale: 1, khi: 0, quality: 0, timeScale: 1, zoom: 1, freeze: 0 };
+  const FX = { speed: 1, reducedMotion: false, offset: { x: 0, y: 0 }, time: 0, view: null, pixel: 3, textScale: 1, khi: 0, quality: 0, cardH: 0, turbo: 1, flushing: false, timeScale: 1, zoom: 1, freeze: 0 };
   const KH = () => TL.CFG.KHI;
   const sp = () => (FX.speed > 0 ? FX.speed : 1) * (FX.timeScale > 0 ? FX.timeScale : 1);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -217,7 +217,7 @@
   const viewH = () => (FX.view ? FX.view.h : (TL.Game && TL.Game.h) || 600);
   function drawPopups(ctx) {
     if (!popups.length || !TL.Art) return;
-    const P = M.popup, v = viewOf(ctx), base = clamp(Math.round(v.h * 0.024), 13, 26);
+    const P = M.popup, v = viewOf(ctx), base = FX.cardH ? clamp(Math.round(FX.cardH * 0.085), 9, 24) : clamp(Math.round(v.h * 0.024), 13, 26);   // sized from the hand card, not the viewport
     for (const p of popups) {
       const k = p.age / P.dur, d = POP[p.kind];
       const pop = k < 0.22 ? outBack(k / 0.22, P.back) : 1;
@@ -254,10 +254,10 @@
     return [str];
   }
   function layoutStamp(str, v, maxW, big) {
-    let size = clamp(Math.min(v.w * 0.06, v.h * 0.085), 22, 60) * FX.textScale * (big || 1);
+    let size = (FX.cardH ? clamp(FX.cardH * 0.17, 16, 56) : clamp(Math.min(v.w * 0.06, v.h * 0.085), 22, 60)) * FX.textScale * (big || 1);
     const fits = (lines, sz) => Math.max.apply(null, lines.map((l) => tw(l, sz))) + sz * 1.6 <= maxW;
     let lines = [str];
-    while (size > 15 && !fits(lines, Math.round(size))) size -= 1;
+    while (size > 12 && !fits(lines, Math.round(size))) size -= 1;
     if (!fits(lines, Math.round(size))) {
       lines = splitTwo(str); size = Math.max(size, 20);
       while (size > 13 && !fits(lines, Math.round(size))) size -= 1;
@@ -385,13 +385,31 @@
   }
 
   // ---------- frame ----------
+  // ---------- skip: tap = fast-forward (queue, timers, tweens run up to 8x, eased in 0.25 s), second tap = jump to the end state ----------
+  let skipLv = 0, skipT = 0;
+  const busyAny = () => queue.busy() || tweens.length > 0 || timers.length > 0;
+  function skipTap() {
+    if (!busyAny()) return false;
+    if (skipLv === 0) { skipLv = 1; skipT = 0; return true; }
+    flush(); return true;
+  }
+  function flush() {
+    FX.flushing = true; FX.freeze = 0;
+    try { for (let i = 0; i < 400 && busyAny(); i++) update(0.05); } finally { FX.flushing = false; }
+    skipLv = 0; skipT = 0; FX.turbo = 1;
+  }
   function update(dt) {
     if (!(dt > 0)) return;
     dt = Math.min(dt, 0.1);
     FX.time += dt;
     if (FX.freeze > 0) { FX.freeze -= dt; return; }
-    runTimers(dt); runQueue(dt); runTweens(dt);
-    const sdt = dt * sp();
+    if (skipLv && !FX.flushing) {
+      if (!busyAny()) { skipLv = 0; skipT = 0; FX.turbo = 1; }
+      else { skipT = Math.min(0.25, skipT + dt); FX.turbo = 1 + 7 * EASE.out(skipT / 0.25); }
+    }
+    const rdt = dt * (skipLv ? FX.turbo : 1);
+    runTimers(rdt); runQueue(rdt); runTweens(rdt);
+    const sdt = rdt * sp();
     for (const p of popups) p.age += sdt;
     popups = popups.filter((p) => p.age < M.popup.dur);
     for (const s of stamps) {
@@ -415,7 +433,7 @@
     ctx.restore();
   }
   function reset() {
-    queue.clear(); timers = []; tweens = []; popups = []; stamps = []; conf = []; fl = []; emitters.clear(); amp = 0; rings = []; flashT = 0; FX.freeze = 0; FX.timeScale = 1; FX.zoom = 1;
+    queue.clear(); timers = []; tweens = []; popups = []; stamps = []; conf = []; fl = []; emitters.clear(); amp = 0; rings = []; flashT = 0; FX.freeze = 0; FX.timeScale = 1; FX.zoom = 1; skipLv = 0; skipT = 0; FX.turbo = 1;
     FX.offset.x = 0; FX.offset.y = 0;
   }
 
@@ -423,7 +441,7 @@
     update: update, draw: draw, reset: reset, queue: queue, after: after, tween: tween, counter: counter,
     juice: juice, juiceOf: juiceOf, popup: popup, stamp: stamp, shake: shake, confetti: confetti, flame: flame,
     shakeFor: shakeFor, stepGap: stepGap, tickPitch: tickPitch, springStep: springStep, ease: EASE,
-    text: text, font: font, artPx: artPx, ring: ring, flash: flash, hitStop: hitStop, skipFinale: skipFinale,
+    text: text, font: font, artPx: artPx, ring: ring, flash: flash, hitStop: hitStop, skipFinale: skipFinale, skipTap: skipTap, flush: flush,
   });
   TL.FX = FX;
 })(globalThis.TL = globalThis.TL || {});
